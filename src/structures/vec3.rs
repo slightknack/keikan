@@ -48,7 +48,56 @@ impl Vec3 {
         }
     }
 
-    pub fn print(&self) -> () {
+    pub fn total(&self) -> f64 {
+        self.x + self.y + self.z
+    }
+
+    pub fn abs(&self) -> Vec3 {
+        Vec3 {
+            x: self.x.abs(),
+            y: self.y.abs(),
+            z: self.z.abs(),
+        }
+    }
+
+    pub fn colorize(&self) -> [u8; 3] {
+        let k = 1.0;
+
+        // TODO: simplify
+
+        // remove colors less than 0
+        // this shouldn't happen, but just in case
+        let mut color = Vec3 {
+            x: self.x.max(0.0),
+            y: self.y.max(0.0),
+            z: self.z.max(0.0),
+        };
+
+        // compress colorspace
+        // note, in the future, k should be average color across all channels
+
+        color = (3.0 * color) / (2.0 * k + color);
+
+        {
+            let away = (color.y - 1.0).max(0.0) + (color.z - 1.0).max(0.0);
+            color.x = (color.x.min(1.0)) + (away - (away - (1.0 - color.x).max(0.0)).max(0.0));
+        }
+
+        {
+            let away = (color.x - 1.0).max(0.0) + (color.z - 1.0).max(0.0);
+            color.y = (color.y.min(1.0)) + (away - (away - (1.0 - color.y).max(0.0)).max(0.0));
+        }
+
+        {
+            let away = (color.x - 1.0).max(0.0) + (color.y - 1.0).max(0.0);
+            color.z = (color.z.min(1.0)) + (away - (away - (1.0 - color.z).max(0.0)).max(0.0));
+        }
+
+        return [color.x as u8, color.y as u8, color.z as u8];
+    }
+
+    // -> ()
+    pub fn print(&self) {
         println!("{:?}", (self.x, self.y, self.z))
     }
 }
@@ -81,6 +130,18 @@ impl Add<f64> for Vec3 {
     }
 }
 
+impl Add<Vec3> for f64 {
+    type Output = Vec3;
+
+    fn add(self, other: Vec3) -> Vec3 {
+        Vec3 {
+            x: self + other.x,
+            y: self + other.y,
+            z: self + other.z,
+        }
+    }
+}
+
 // - ...
 // - Vec3 subtracting Vec3s and scalars
 // - ...
@@ -105,6 +166,18 @@ impl Sub<f64> for Vec3 {
             x: self.x - other,
             y: self.y - other,
             z: self.z - other,
+        }
+    }
+}
+
+impl Sub<Vec3> for f64 {
+    type Output = Vec3;
+
+    fn sub(self, other: Vec3) -> Vec3 {
+        Vec3 {
+            x: self - other.x,
+            y: self - other.y,
+            z: self - other.z,
         }
     }
 }
@@ -153,7 +226,7 @@ impl Mul<Vec3> for f64 {
 // - divide vec3 by scalar
 // - ...
 
-fn bound(number: f64) -> f64 {
+fn clamp(number: f64) -> f64 {
     // get rid of infinities?
     return if number.abs() == (1.0 / 0.0) {f64::MAX} else {number}
 }
@@ -163,9 +236,9 @@ impl Div<Vec3> for Vec3 {
 
     fn div(self, other: Vec3) -> Vec3 {
         Vec3 {
-            x: bound(self.x / other.x),
-            y: bound(self.y / other.y),
-            z: bound(self.z / other.z),
+            x: clamp(self.x / other.x),
+            y: clamp(self.y / other.y),
+            z: clamp(self.z / other.z),
         }
     }
 }
@@ -175,9 +248,9 @@ impl Div<f64> for Vec3 {
 
     fn div(self, other: f64) -> Vec3 {
         Vec3 {
-            x: bound(self.x / other),
-            y: bound(self.y / other),
-            z: bound(self.z / other),
+            x: clamp(self.x / other),
+            y: clamp(self.y / other),
+            z: clamp(self.z / other),
         }
     }
 }
@@ -360,5 +433,15 @@ pub mod test {
             vec.unit(),
             test,
         );
+    }
+
+    #[test]
+    fn test_tone_map() {
+        let over = Vec3::new(10.0, 10.0, 10.0);
+
+        assert_eq!(
+            over.tone_map(&1.0),
+            Vec3::new(0.0, 0.0, 0.0)
+        )
     }
 }
