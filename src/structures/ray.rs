@@ -1,28 +1,27 @@
-use structures::vec3::Vec3;
-use structures::ray::Ray;
+use crate::structures::vec3::Vec3;
 
-struct Ray {
+pub struct Ray {
     pub origin: Vec3,
     pub direction: Vec3,
 }
 
 impl Ray {
-    fn new(origin: Vec3, direction: Vec3) -> Ray {
+    pub fn new(origin: Vec3, direction: Vec3) -> Ray {
         Ray {
             origin: origin,
             direction: direction,
         }
     }
 
-    fn through(origin: Vec3, to: Vec3) -> Ray {
+    pub fn through(origin: Vec3, to: Vec3) -> Ray {
         Ray {
             origin: origin,
             direction: (origin - to).unit()
         }
     }
 
-    fn point_along(&self, &distance: float) -> Vec3 {
-        self.origin + self.direction * distance;
+    pub fn point_at(&self, distance: &f64) -> Vec3 {
+        self.origin + self.direction * (*distance)
     }
 }
 

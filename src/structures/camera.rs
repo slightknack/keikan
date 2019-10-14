@@ -1,19 +1,19 @@
-use structures::vec3::Vec3;
-use structures::ray::Ray;
+use crate::structures::vec3::Vec3;
+use crate::structures::ray::Ray;
 
-struct Camera {
-    camera: Ray,
-    up: Vec3,
+pub struct Camera {
+    pub ray: Ray,
+    pub up: Vec3,
 }
 
 impl Camera {
-    fn new(from: Vec3, to: Vec3, up: Vec3) -> Camera{
-        w = (from - to).unit();
-        u = (up.cross(w)).unit();
-        v = w.cross(u);
+    pub fn new(from: Vec3, to: Vec3, up: Vec3) -> Camera{
+        let w = (from - to).unit();
+        let u = (up.cross(&w)).unit();
+        let v = w.cross(&u);
 
         Camera {
-            camera: Ray::new(v, ),
+            ray: Ray::new(from, v),
             up: up,
         }
     }

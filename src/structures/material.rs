@@ -1,7 +1,8 @@
-use super::vec3::Vec3;
+use crate::structures::vec3::Vec3;
 
+// TODO: derive debug.. etc. for other structs
 #[derive(Debug, Copy, Clone)]
-struct Material {
+pub struct Material {
     pub color: Vec3, // color
     pub emission: f64, // how strong?
 
@@ -18,10 +19,24 @@ struct Material {
 impl Material {
     // TODO
 
-    fn sky() -> Material {
+    pub fn sky() -> Material {
         Material {
             color: Vec3::new(0.6, 0.8, 1.0),
             emission: 1.0,
+
+            metallic: 0.0,
+            specular: 0.0,
+            roughness: 0.0,
+
+            transmission: 0.0,
+            ior: 0.0,
+        }
+    }
+
+    pub fn blank() -> Material {
+        Material {
+            color: Vec3::new(0.0, 0.0, 0.0),
+            emission: 0.0,
 
             metallic: 0.0,
             specular: 0.0,
