@@ -93,6 +93,11 @@ impl Vec3 {
             color.z = (color.z.min(1.0)) + (away - (away - (1.0 - color.z).max(0.0)).max(0.0));
         }
 
+        // gamma correction and range normalization
+        color.x = color.x.sqrt() * 255.9;
+        color.y = color.y.sqrt() * 255.9;
+        color.z = color.z.sqrt() * 255.9;
+
         return [color.x as u8, color.y as u8, color.z as u8];
     }
 

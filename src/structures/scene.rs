@@ -1,5 +1,5 @@
 type Marchable = (fn(Vec3) -> f64, Material);
-type Traceable = (fn(Ray) -> bool, Material);
+type Traceable = (fn(Ray) -> (bool, f64, Vec3), Material);
 
 struct Scene {
     pub march: Vec<Marchable>,
