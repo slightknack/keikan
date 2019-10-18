@@ -1,0 +1,33 @@
+use structures::vec3::Vec3;
+use structures::material::Material;
+
+struct CastResult {
+    pub hit: bool,
+    pub distance: f64,
+    pub normal: Vec3,
+    pub material: Material,
+}
+
+impl CastResult {
+    pub fn new(hit: bool, distance: f64, normal: Vec3, material: Material) {
+        CastResult {
+            hit: hit,
+            distance: distance,
+            normal: normal,
+            material: material,
+        }
+    }
+
+    pub fn worst() {
+        CastResult {
+            hit: false,
+            distance: f64::MAX,
+            normal: Vec3(0.0, 0.0, 0.0),
+            material: Material::blank(),
+        }
+    }
+
+    pub fn unpack(&self) {
+        (self.hit, self.distance, self.normal, self.material)
+    }
+}

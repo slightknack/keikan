@@ -1,17 +1,11 @@
 use crate::structures::camera::Camera;
-use crate::structures::material::Material;
 use crate::structures::vec3::Vec3;
 use crate::structures::ray::Ray;
-
-pub type Marcher = fn(Vec3) -> f64;
-pub type Tracer = fn(Ray) -> (bool, f64, Vec3);
-
-pub type Marchable = (Marcher, Material);
-pub type Traceable = (Tracer, Material);
+use crate::objects::traits::{March, Trace};
 
 pub struct Scene {
-    pub march: Vec<Marchable>,
-    pub trace: Vec<Traceable>,
+    pub march: Vec<Box<March>>,
+    pub trace: Vec<Box<Trace>>,
     pub camera: Camera,
 }
 
