@@ -1,11 +1,13 @@
-use rand::Rng;
-
+use std::any::Any;
 use std::f64;
+
+use rand::Rng;
 
 use crate::structures::vec3::Vec3;
 use crate::structures::ray::Ray;
 use crate::structures::camera::Camera;
 use crate::structures::material::Material;
+use crate::structures::scene::Scene;
 use crate::structures::cast_result::CastResult;
 use crate::objects::traits::{March, Trace};
 
@@ -16,21 +18,21 @@ const MAX_BOUNCES: u32 = 4;
 const SAMPLES: u32 = 16;
 const EPSILON: f64 = 1.0 / 512.0;
 
-fn hit_trace(trace: Vec<Box<March>>, ray: Ray) -> CastResult {
-    let best: CastResult::worst();
+fn hit_trace(trace: Vec<&dyn Any>, ray: Ray) -> CastResult {
+    let best = CastResult::worst();
 
     for object in trace {
         let (hit, distance, normal) = object.trace(ray);
 
-        if hit && (best[0] == false || distance <= best[1]) {
-            best = CastResult::new(hit, distance, normal, material);
+        if hit && (best.hit == false || distance <= best.distance) {
+            best = CastResult::new(hit, distance, normal, object.material);
         }
     }
 
     return best;
 }
 
-fn hit_march(march: Vec<Box<Trace>>, ray: Ray) -> CastResult {
+fn hit_march(march: Vec<&dyn Any>, ray: Ray) -> CastResult {
     fn sdf(point: Vec3) -> (f64, Material) {
         let mut min = f64::MAX;
         let mut mat = Material::blank();
@@ -40,9 +42,9 @@ fn hit_march(march: Vec<Box<Trace>>, ray: Ray) -> CastResult {
 
             if distance <= min {
                 min = distance;
-                mat = material;
+                mat = object.material;
             }
-        };
+        }
 
         return (min, mat);
     }
@@ -55,37 +57,26 @@ fn hit_march(march: Vec<Box<Trace>>, ray: Ray) -> CastResult {
         ).unit();
     }
 
-    // refactor vars declared around loops
-    let hit = false;
-    let depth = 0.0;
+    let mut depth = 0.0;
 
     for step in 0..MAX_STEPS {
-        let (distance, material) = sdf(ray.point_at(depth));
+        let (distance, material) = sdf(ray.point_at(&depth));
 
         // rewrite assignments to match this
         depth += distance;
 
         if distance <= EPSILON {
-            hit = true;
-            break;
+            // quick normal estimation
+            let normal = normal(ray.point_at(&depth));
+            return CastResult::new(true, distance, normal, material);
         }
 
-        if distance >= MAX_DEPTH {
+        if distance >= MAX_DEPTH.into() {
             break;
         }
     }
 
-    // nothing was hit :(
-    if !hit {
-        // material blank or material sky?
-        return CastResult::worst();
-    }
-
-    // quick normal estimation
-    let normal = normal(ray.point_at(depth));
-
-    // we hit it, here it is!
-    return CastResult::new(true, distance, normal, material);
+    return CastResult::worst();
 }
 
 fn cast_ray(scene: Scene, ray: Ray) -> CastResult {
@@ -97,7 +88,7 @@ fn cast_ray(scene: Scene, ray: Ray) -> CastResult {
         return CastResult::worst();
     }
 
-    if  trace_hit && !march_hit || trace_dist <= march_dist {
+    if  trace.hit && !march.hit || trace.distance <= march.distance {
         return trace;
     }
 
@@ -148,12 +139,12 @@ fn color(scene: Scene, ray: Ray, bounce: u32) -> Vec3 {
     let (hit, distance, normal, material) = cast_ray(scene, ray).unpack();
 
     // return the sky
-    if !hit || bounce = 0 {
+    if !hit || bounce == 0 {
         return material.color * material.emission;
     }
 
     // time for some recursion...
-    let position = ray.point_at(distance);
+    let position = ray.point_at(&distance);
 
     // we need to get 3 things:
     // a reflection, a diffuse, and a transmission
@@ -163,10 +154,10 @@ fn color(scene: Scene, ray: Ray, bounce: u32) -> Vec3 {
     // diffuse:
     for _ in 0..SAMPLES {
         scatter = Ray::through(position, position + sample_sphere() * material.roughness);
-        sample = color(scene, scatter, bounce);
+        let sample = color(scene, scatter, bounce);
 
         // lambert thing
-        diffuse += (scatter.dot(normal) * sample);
+        diffuse = diffuse + (scatter.direction.dot(&normal) * sample);
     }
 
     let mut specular = Vec3::new(0.0, 0.0, 0.0);
@@ -175,11 +166,11 @@ fn color(scene: Scene, ray: Ray, bounce: u32) -> Vec3 {
     for _ in 0..SAMPLES {
         scatter = Ray::through(
             position,
-            position + reflect(ray.direction, normal) + sample_sphere() * material.roughness
+            position + reflect(ray.direction, normal.clone()) + sample_sphere() * material.roughness,
         );
-        sample = color(scene, scatter, bounce);
+        let sample = color(scene, scatter, bounce);
 
-        specular += sample;
+        specular = specular + sample;
     }
 
     let mut transmission = Vec3::new(0.0, 0.0, 0.0);
@@ -191,8 +182,8 @@ fn color(scene: Scene, ray: Ray, bounce: u32) -> Vec3 {
 
     // TODO: fresnel
 
-    diffuse = diffuse / SAMPLES;
-    specular = specular / SAMPLES;
+    diffuse = diffuse / SAMPLES.into();
+    specular = specular / SAMPLES.into();
 
     let mut result: Vec3;
 
@@ -215,6 +206,7 @@ fn make_ray(origin: Vec3, fov: f64, ratio: f64, uv: [f64; 2]) -> Ray {
 
 pub fn render(scene: Scene, uv: [f64; 2], resolution: [usize; 2]) -> Vec3 {
     // make ray
+    // TODO: change to .into() for as?
     let ray = make_ray(scene.camera.ray.origin, 120.0, (resolution[0] as f64) / (resolution[1] as f64), uv);
 
     // cast ray

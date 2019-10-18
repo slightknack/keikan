@@ -1,4 +1,5 @@
 mod structures;
+mod objects;
 mod write;
 mod render;
 mod make_scene;

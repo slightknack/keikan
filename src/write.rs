@@ -1,7 +1,7 @@
 use image::{ImageBuffer, Rgb, ImageRgb8};
 use std::path::Path;
 
-use super::vec3::Vec3;
+use crate::structures::vec3::Vec3;
 
 pub fn png(image: Vec<Vec<Vec3>>, file: String) {
     let path = Path::new(&file);

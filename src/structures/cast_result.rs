@@ -1,7 +1,9 @@
-use structures::vec3::Vec3;
-use structures::material::Material;
+use std::f64;
 
-struct CastResult {
+use crate::structures::vec3::Vec3;
+use crate::structures::material::Material;
+
+pub struct CastResult {
     pub hit: bool,
     pub distance: f64,
     pub normal: Vec3,
@@ -9,7 +11,7 @@ struct CastResult {
 }
 
 impl CastResult {
-    pub fn new(hit: bool, distance: f64, normal: Vec3, material: Material) {
+    pub fn new(hit: bool, distance: f64, normal: Vec3, material: Material) -> CastResult {
         CastResult {
             hit: hit,
             distance: distance,
@@ -18,16 +20,16 @@ impl CastResult {
         }
     }
 
-    pub fn worst() {
+    pub fn worst() -> CastResult {
         CastResult {
             hit: false,
             distance: f64::MAX,
-            normal: Vec3(0.0, 0.0, 0.0),
+            normal: Vec3::new(0.0, 0.0, 0.0),
             material: Material::blank(),
         }
     }
 
-    pub fn unpack(&self) {
+    pub fn unpack(&self) -> (bool, f64, Vec3, Material) {
         (self.hit, self.distance, self.normal, self.material)
     }
 }

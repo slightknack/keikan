@@ -1,15 +1,16 @@
-use structures::vec3::Vec3;
-use structures::ray::Ray;
-use objects::traits::{March, Trace};
+use crate::structures::vec3::Vec3;
+use crate::structures::ray::Ray;
+use crate::structures::material::Material;
+use crate::objects::traits::{March, Trace};
 
-struct Sphere {
+pub struct Sphere {
     pub position: Vec3,
     pub radius: f64,
     pub material: Material,
 }
 
 impl Sphere {
-    pub fn new(position: Vec3, radius: f64, material: Material) {
+    pub fn new(position: Vec3, radius: f64, material: Material) -> Sphere {
         Sphere {
             position: position,
             radius: radius,
@@ -23,13 +24,16 @@ impl Trace for Sphere {
         let oc = ray.origin - self.position;
 
         let a = ray.direction.dot(&ray.direction);
-        let b = 2.0 * oc.dot(ray.direction);
-        let c = oc.dot(oc) - self.radius * self.radius;
+        let b = 2.0 * oc.dot(&ray.direction);
+        let c = oc.dot(&oc) - self.radius * self.radius;
+        let disc = (b * b) - (4.0 * a * c) > 0.0;
 
-        let hit = (b * b) - (4.0 * a * c) > 0.0;
+        let hit = if disc > 0 {true} else {false};
+        let distance = (0.0 - b - disc.sqrt()) / (2.0 * a);
+        let normal = (ray.point_at(distance) - self.position).unit();
 
         // TODO: distance, normal
-        return (hit, distance, normal);
+        return (hit, *distance, normal);
     }
 }
 
