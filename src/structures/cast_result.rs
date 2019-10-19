@@ -25,7 +25,7 @@ impl CastResult {
         CastResult {
             hit: false,
             distance: f64::MAX,
-            normal: Vec3::new(0.0, 0.0, 0.0),
+            normal: Vec3::new(1.0, 1.0, 1.0),
             material: Material::blank(),
         }
     }

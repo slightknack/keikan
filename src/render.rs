@@ -13,10 +13,11 @@ use crate::objects::traits::{ March, Trace };
 // constants
 const MAX_STEPS: u32 = 128;
 const MAX_DEPTH: u32 = 512;
-const MAX_BOUNCES: u32 = 4;
-const SAMPLES: u32 = 16;
-const EPSILON: f64 = 1.0 / 512.0;
+const MAX_BOUNCES: u32 = 2;
+const SAMPLES: u32 = 10;
+const EPSILON: f64 = 0.01;
 
+// TODO: results are trapped and rays will self-intersect
 fn hit_march(march: &Vec<Rc<dyn March>>, ray: Ray) -> CastResult {
     let sdf = |point: Vec3| {
         let mut min = f64::MAX;
@@ -45,11 +46,14 @@ fn hit_march(march: &Vec<Rc<dyn March>>, ray: Ray) -> CastResult {
     let mut depth = 0.0;
 
     for step in 0..MAX_STEPS {
-        let (distance, material) = sdf(ray.point_at(&depth));
+        let point = ray.point_at(&depth);
+        let (distance, material) = sdf(point);
+
         depth += distance;
 
         if distance <= EPSILON {
-            let normal = normal(ray.point_at(&depth)); // quick normal estimation
+            let normal = normal(point); // quick normal estimation
+            let distance = (point - ray.origin).length();
             return CastResult::new(true, distance, normal, material);
         }
 
@@ -62,12 +66,14 @@ fn hit_march(march: &Vec<Rc<dyn March>>, ray: Ray) -> CastResult {
 }
 
 fn hit_trace(trace: &Vec<Rc<dyn Trace>>, ray: Ray) -> CastResult {
+    // todo: cull behind camera
+
     let mut best = CastResult::worst();
 
     for object in trace.iter() {
         let (hit, distance, normal) = object.trace(ray);
 
-        if hit && (best.hit == false || distance <= best.distance) {
+        if hit && distance > 0.0 && (best.hit == false || distance <= best.distance) {
             best = CastResult::new(hit, distance, normal, object.material());
         }
     }
@@ -134,9 +140,11 @@ fn color(scene: &Scene, ray: Ray, bounce: u32) -> Vec3 {
     let (hit, distance, normal, material) = cast_ray(&scene, ray).unpack();
 
     // nothing hit, return the sky
-    if !hit || bounce == 0 {
-        return material.color * material.emission;
-    }
+    if !hit || bounce <= 0 {
+        return material.color; // * material.emission;
+    } // } else {
+    //     return material.color;
+    // }
 
     // time for some recursion...
     let position = ray.point_at(&distance);
@@ -148,11 +156,11 @@ fn color(scene: &Scene, ray: Ray, bounce: u32) -> Vec3 {
 
     // diffuse:
     for _ in 0..SAMPLES {
-        scatter = Ray::through(position, position + sample_sphere() * material.roughness);
-        let sample = color(&scene, scatter, bounce);
+        scatter = Ray::through(position, position + normal + (sample_sphere() * material.roughness));
+        let sample = color(&scene, scatter, bounce - 1);
 
-        // lambert thing
-        diffuse = diffuse + (scatter.direction.dot(&normal) * sample);
+        // TODO: lambertian thing?
+        diffuse = diffuse + sample; // (scatter.direction.dot(&normal).abs() * sample);
     }
 
     let mut specular = Vec3::new(0.0, 0.0, 0.0);
@@ -161,9 +169,9 @@ fn color(scene: &Scene, ray: Ray, bounce: u32) -> Vec3 {
     for _ in 0..SAMPLES {
         scatter = Ray::through(
             position,
-            position + reflect(ray.direction, normal.clone()) + sample_sphere() * material.roughness,
+            position + reflect(ray.direction, normal) + sample_sphere() * material.roughness,
         );
-        let sample = color(&scene, scatter, bounce);
+        let sample = color(&scene, scatter, bounce - 1);
 
         specular = specular + sample;
     }
@@ -171,8 +179,8 @@ fn color(scene: &Scene, ray: Ray, bounce: u32) -> Vec3 {
     let mut transmission = Vec3::new(0.0, 0.0, 0.0);
 
     // TODO: glass
-    for _ in 0..SAMPLES {
-    }
+    // for _ in 0..SAMPLES {
+    // }
 
     // TODO: fresnel
 
@@ -186,7 +194,7 @@ fn color(scene: &Scene, ray: Ray, bounce: u32) -> Vec3 {
     // make source emissive as per the emission parameter
     result = (specular * material.metallic) + (diffuse * (1.0 - material.metallic));
     result = (transmission * material.transmission) + (result * (1.0 - material.transmission));
-    result = (material.color * material.emission) + (result * (1.0 - material.emission).min(0.0));
+    result = (material.color * material.emission) + (result * (1.0 - material.emission).max(0.0));
 
     return result;
 }
@@ -200,7 +208,7 @@ fn make_ray(origin: Vec3, fov: f64, ratio: f64, uv: [f64; 2]) -> Ray {
 
 pub fn render(scene: &Scene, uv: [f64; 2], resolution: [usize; 2]) -> Vec3 {
     // make ray
-    // TODO: change to .into() for as?
+
     let ray = make_ray(
         scene.camera.ray.origin,
         120.0, // standard fov

@@ -34,16 +34,17 @@ impl Material {
     }
 
     pub fn blank() -> Material {
-        Material {
-            color: Vec3::new(0.0, 0.0, 0.0),
-            emission: 0.0,
-
-            metallic: 0.0,
-            specular: 0.0,
-            roughness: 0.0,
-
-            transmission: 0.0,
-            ior: 0.0,
-        }
+        Material::sky()
+        // Material {
+        //     color: Vec3::new(0.0, 0.0, 0.0),
+        //     emission: 0.0,
+        //
+        //     metallic: 0.0,
+        //     specular: 0.0,
+        //     roughness: 0.0,
+        //
+        //     transmission: 0.0,
+        //     ior: 0.0,
+        // }
     }
 }
