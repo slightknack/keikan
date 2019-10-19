@@ -3,6 +3,7 @@ use std::f64;
 use crate::structures::vec3::Vec3;
 use crate::structures::material::Material;
 
+#[derive(Debug, Copy, Clone)]
 pub struct CastResult {
     pub hit: bool,
     pub distance: f64,

@@ -1,4 +1,4 @@
-use image::{ImageBuffer, Rgb, ImageRgb8};
+use image::{ ImageBuffer, Rgb, ImageRgb8 };
 use std::path::Path;
 
 use crate::structures::vec3::Vec3;

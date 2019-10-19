@@ -1,6 +1,7 @@
 use crate::structures::vec3::Vec3;
 use crate::structures::ray::Ray;
 
+#[derive(Debug, Copy, Clone)]
 pub struct Camera {
     pub ray: Ray,
     pub up: Vec3,

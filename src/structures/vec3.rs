@@ -15,7 +15,15 @@ pub struct Vec3 {
 
 impl Vec3 {
     pub fn new(x: f64, y: f64, z: f64) -> Vec3 {
-        Vec3 {x: x, y: y, z: z}
+        Vec3 { x: x, y: y, z: z }
+    }
+
+    pub fn max() -> Vec3 {
+        Vec3 {
+            x: f64::MAX,
+            y: f64::MAX,
+            z: f64::MAX,
+        }
     }
 
     pub fn dot(&self, other: &Vec3) -> f64 {
@@ -233,7 +241,7 @@ impl Mul<Vec3> for f64 {
 
 fn clamp(number: f64) -> f64 {
     // get rid of infinities?
-    return if number.abs() == (1.0 / 0.0) {f64::MAX} else {number}
+    return if number.abs() == (1.0 / 0.0) { f64::MAX } else { number }
 }
 
 impl Div<Vec3> for Vec3 {

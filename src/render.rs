@@ -1,6 +1,5 @@
-use std::any::Any;
 use std::f64;
-
+use std::rc::Rc;
 use rand::Rng;
 
 use crate::structures::vec3::Vec3;
@@ -9,7 +8,7 @@ use crate::structures::camera::Camera;
 use crate::structures::material::Material;
 use crate::structures::scene::Scene;
 use crate::structures::cast_result::CastResult;
-use crate::objects::traits::{March, Trace};
+use crate::objects::traits::{ March, Trace };
 
 // constants
 const MAX_STEPS: u32 = 128;
@@ -18,56 +17,39 @@ const MAX_BOUNCES: u32 = 4;
 const SAMPLES: u32 = 16;
 const EPSILON: f64 = 1.0 / 512.0;
 
-fn hit_trace(trace: Vec<&dyn Any>, ray: Ray) -> CastResult {
-    let best = CastResult::worst();
-
-    for object in trace {
-        let (hit, distance, normal) = object.trace(ray);
-
-        if hit && (best.hit == false || distance <= best.distance) {
-            best = CastResult::new(hit, distance, normal, object.material);
-        }
-    }
-
-    return best;
-}
-
-fn hit_march(march: Vec<&dyn Any>, ray: Ray) -> CastResult {
-    fn sdf(point: Vec3) -> (f64, Material) {
+fn hit_march(march: &Vec<Rc<dyn March>>, ray: Ray) -> CastResult {
+    let sdf = |point: Vec3| {
         let mut min = f64::MAX;
         let mut mat = Material::blank();
 
-        for object in march {
+        for object in march.iter() {
             let distance = object.march(point);
 
             if distance <= min {
                 min = distance;
-                mat = object.material;
+                mat = object.material();
             }
         }
 
         return (min, mat);
-    }
+    };
 
-    fn normal(p: Vec3) -> Vec3 {
-        return Vec3::new(
+    let normal = |p: Vec3| {
+        Vec3::new(
             sdf(Vec3::new(p.x + EPSILON, p.y, p.z)).0 - sdf(Vec3::new(p.x - EPSILON, p.y, p.z)).0,
             sdf(Vec3::new(p.x, p.y + EPSILON, p.z)).0 - sdf(Vec3::new(p.x, p.y - EPSILON, p.z)).0,
             sdf(Vec3::new(p.x, p.y, p.z + EPSILON)).0 - sdf(Vec3::new(p.x, p.y, p.z - EPSILON)).0,
-        ).unit();
-    }
+        ).unit()
+    };
 
     let mut depth = 0.0;
 
     for step in 0..MAX_STEPS {
         let (distance, material) = sdf(ray.point_at(&depth));
-
-        // rewrite assignments to match this
         depth += distance;
 
         if distance <= EPSILON {
-            // quick normal estimation
-            let normal = normal(ray.point_at(&depth));
+            let normal = normal(ray.point_at(&depth)); // quick normal estimation
             return CastResult::new(true, distance, normal, material);
         }
 
@@ -79,9 +61,23 @@ fn hit_march(march: Vec<&dyn Any>, ray: Ray) -> CastResult {
     return CastResult::worst();
 }
 
-fn cast_ray(scene: Scene, ray: Ray) -> CastResult {
-    let march = hit_march(scene.march, ray);
-    let trace = hit_trace(scene.trace, ray);
+fn hit_trace(trace: &Vec<Rc<dyn Trace>>, ray: Ray) -> CastResult {
+    let mut best = CastResult::worst();
+
+    for object in trace.iter() {
+        let (hit, distance, normal) = object.trace(ray);
+
+        if hit && (best.hit == false || distance <= best.distance) {
+            best = CastResult::new(hit, distance, normal, object.material());
+        }
+    }
+
+    return best;
+}
+
+fn cast_ray(scene: &Scene, ray: Ray) -> CastResult {
+    let march = hit_march(&scene.march, ray);
+    let trace = hit_trace(&scene.trace, ray);
 
     // nothing was hit, so return the sky
     if !march.hit && !trace.hit {
@@ -96,16 +92,15 @@ fn cast_ray(scene: Scene, ray: Ray) -> CastResult {
 }
 
 fn sample_sphere() -> Vec3 {
-    // speed up with `let mut rng = rand::thread_rng()` in closure?
-
     let mut rng = rand::thread_rng();
-    let mut point: Vec3;
+    let mut point: Vec3 = Vec3::max();
 
+    // sample point in unit cube, check if in unit sphere
     while point.length_squared() >= 1.0 {
         point = Vec3::new(
-            rng.gen() * 2.0 - 1.0,
-            rng.gen() * 2.0 - 1.0,
-            rng.gen() * 2.0 - 1.0,
+            rng.gen::<f64>() * 2.0 - 1.0,
+            rng.gen::<f64>() * 2.0 - 1.0,
+            rng.gen::<f64>() * 2.0 - 1.0,
          );
     }
 
@@ -135,10 +130,10 @@ fn refract(v: &Vec3, n: &Vec3, ni_over_nt: f64, refracted: &mut Vec3) -> bool {
     }
 }
 
-fn color(scene: Scene, ray: Ray, bounce: u32) -> Vec3 {
-    let (hit, distance, normal, material) = cast_ray(scene, ray).unpack();
+fn color(scene: &Scene, ray: Ray, bounce: u32) -> Vec3 {
+    let (hit, distance, normal, material) = cast_ray(&scene, ray).unpack();
 
-    // return the sky
+    // nothing hit, return the sky
     if !hit || bounce == 0 {
         return material.color * material.emission;
     }
@@ -154,7 +149,7 @@ fn color(scene: Scene, ray: Ray, bounce: u32) -> Vec3 {
     // diffuse:
     for _ in 0..SAMPLES {
         scatter = Ray::through(position, position + sample_sphere() * material.roughness);
-        let sample = color(scene, scatter, bounce);
+        let sample = color(&scene, scatter, bounce);
 
         // lambert thing
         diffuse = diffuse + (scatter.direction.dot(&normal) * sample);
@@ -168,7 +163,7 @@ fn color(scene: Scene, ray: Ray, bounce: u32) -> Vec3 {
             position,
             position + reflect(ray.direction, normal.clone()) + sample_sphere() * material.roughness,
         );
-        let sample = color(scene, scatter, bounce);
+        let sample = color(&scene, scatter, bounce);
 
         specular = specular + sample;
     }
@@ -177,13 +172,12 @@ fn color(scene: Scene, ray: Ray, bounce: u32) -> Vec3 {
 
     // TODO: glass
     for _ in 0..SAMPLES {
-        scatter;
     }
 
     // TODO: fresnel
 
-    diffuse = diffuse / SAMPLES.into();
-    specular = specular / SAMPLES.into();
+    diffuse = diffuse / SAMPLES as f64;
+    specular = specular / SAMPLES as f64;
 
     let mut result: Vec3;
 
@@ -204,11 +198,16 @@ fn make_ray(origin: Vec3, fov: f64, ratio: f64, uv: [f64; 2]) -> Ray {
     return Ray::new(origin, (Vec3::new(xy[0], xy[1], -z)).unit());
 }
 
-pub fn render(scene: Scene, uv: [f64; 2], resolution: [usize; 2]) -> Vec3 {
+pub fn render(scene: &Scene, uv: [f64; 2], resolution: [usize; 2]) -> Vec3 {
     // make ray
     // TODO: change to .into() for as?
-    let ray = make_ray(scene.camera.ray.origin, 120.0, (resolution[0] as f64) / (resolution[1] as f64), uv);
+    let ray = make_ray(
+        scene.camera.ray.origin,
+        120.0, // standard fov
+        (resolution[0] as f64) / (resolution[1] as f64),
+        uv
+    );
 
     // cast ray
-    return color(scene, ray, MAX_BOUNCES);
+    return color(&scene, ray, MAX_BOUNCES);
 }
