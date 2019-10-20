@@ -14,7 +14,7 @@ use crate::objects::traits::{ March, Trace };
 const MAX_STEPS: u32 = 128;
 const MAX_DEPTH: u32 = 512;
 const MAX_BOUNCES: u32 = 2;
-const SAMPLES: u32 = 10;
+const SAMPLES: u32 = 1;
 const EPSILON: f64 = 0.01;
 
 // TODO: results are trapped and rays will self-intersect
@@ -209,11 +209,14 @@ fn make_ray(origin: Vec3, fov: f64, ratio: f64, uv: [f64; 2]) -> Ray {
 pub fn render(scene: &Scene, uv: [f64; 2], resolution: [usize; 2]) -> Vec3 {
     // make ray
 
+    let mut xy = [uv[0] / (resolution[0] as f64), uv[1] / (resolution[1] as f64)];
+    xy[0] *= (resolution[0] as f64) / (resolution[1] as f64);
+
     let ray = make_ray(
         scene.camera.ray.origin,
         120.0, // standard fov
         (resolution[0] as f64) / (resolution[1] as f64),
-        uv
+        xy,
     );
 
     // cast ray

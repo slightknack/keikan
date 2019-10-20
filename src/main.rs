@@ -25,7 +25,7 @@ fn main() {
 
             row.push(render(
                 &scene,
-                [(x as f64) / (RESOLUTION[0] as f64), (y as f64) / (RESOLUTION[1] as f64)],
+                [x as f64, y as f64],
                 RESOLUTION,
             ));
         }

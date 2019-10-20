@@ -13,7 +13,7 @@ pub fn make_scene() -> Scene {
 
     let mut scene = Scene::new(camera);
 
-    let plastic: Material = Material {
+    let plastic = Material {
         color: Vec3::new(1.0, 0.0, 0.0), // red
         emission: 0.0, // not a light!
 
@@ -27,7 +27,7 @@ pub fn make_scene() -> Scene {
         ior: 0.0,
     };
 
-    let light: Material = Material {
+    let light = Material {
         color: Vec3::new(1.0, 1.0, 1.0), // white
         emission: 2.0, // a light!
 
@@ -41,7 +41,7 @@ pub fn make_scene() -> Scene {
         ior: 0.0,
     };
 
-    let metal: Material = Material {
+    let metal = Material {
         color: Vec3::new(0.5, 0.5, 1.0), // blueish
         emission: 0.0, // not a light!
 
