@@ -8,6 +8,7 @@ use render::render;
 use make_scene::make_scene;
 use structures::vec3::Vec3;
 
+
 const RESOLUTION: [usize; 2] = [100, 200];
 const RENDER_OUT: &str = "/Users/isaac/Desktop/render9.png"; // make this your own path
 

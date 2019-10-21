@@ -55,8 +55,8 @@ pub fn make_scene() -> Scene {
         ior: 0.0,
     };
 
-    scene.add_trace(Sphere::new(Vec3::new(0.0, 0.0, 0.0), 1.0, plastic));
-    scene.add_march(Sphere::new(Vec3::new(0.0, 2.0, 0.0), 1.0, metal));
+    scene.add_march(Sphere::new(Vec3::new(0.0, 0.0, 0.0), 1.0, plastic));
+    scene.add_trace(Sphere::new(Vec3::new(0.0, 2.0, 0.0), 1.0, metal));
     scene.add_trace(Sphere::new(Vec3::new(2.0, 0.0, 0.0), 1.0, light));
     scene.add_trace(Sphere::new(Vec3::new(-2.0, 0.0, 0.0), 1.0, plastic));
 

@@ -43,6 +43,6 @@ impl March for Sphere {
     fn material(&self) -> Material { self.material }
 
     fn march(&self, point: Vec3) -> f64 {
-        (point - self.position).length() - self.radius
+        (point - self.position).length() - self.radius // TODO modulo with 6 for infinite rep.
     }
 }

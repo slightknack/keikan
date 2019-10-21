@@ -13,11 +13,13 @@ use crate::objects::traits::{ March, Trace };
 // constants
 const MAX_STEPS: u32 = 128;
 const MAX_DEPTH: u32 = 512;
-const MAX_BOUNCES: u32 = 3;
+const MAX_BOUNCES: u32 = 4;
 const SAMPLES: u32 = 16;
 const EPSILON: f64 = 0.001;
+const AA: u32 = 4;
 
-// TODO: results are trapped and rays will self-intersect
+// TODO: refactor rendering code into impl for scene, camera, and materials, etc.
+// TODO: results are trapped and rays will self-intersect, especially for metals
 fn hit_march(march: &Vec<Arc<dyn March>>, ray: Ray) -> CastResult {
     let sdf = |point: Vec3| {
         let mut min = f64::MAX;
@@ -69,8 +71,6 @@ fn hit_march(march: &Vec<Arc<dyn March>>, ray: Ray) -> CastResult {
 }
 
 fn hit_trace(trace: &Vec<Arc<dyn Trace>>, ray: Ray) -> CastResult {
-    // todo: cull behind camera
-
     let mut best = CastResult::worst();
 
     for object in trace.iter() {
@@ -222,17 +222,25 @@ fn make_ray(origin: Vec3, fov: f64, ratio: f64, uv: [f64; 2]) -> Ray {
 }
 
 pub fn render(scene: &Scene, uv: [f64; 2], resolution: [usize; 2]) -> Vec3 {
-    // make ray
-    let mut xy = [uv[0] / (resolution[0] as f64), uv[1] / (resolution[1] as f64)];
-    xy[0] *= (resolution[0] as f64) / (resolution[1] as f64);
+    let mut rng = rand::thread_rng();
+    let mut aliased = Vec3::new(0.0, 0.0, 0.0);
 
-    let ray = make_ray(
-        scene.camera.ray.origin,
-        120.0, // standard fov
-        (resolution[0] as f64) / (resolution[1] as f64),
-        xy,
-    );
+    for _ in 0..AA {
+        let mut xy = [(uv[0] as f64) + rng.gen::<f64>(), (uv[1] as f64) + rng.gen::<f64>()];
 
-    // cast ray
-    return color(&scene, ray, MAX_BOUNCES, SAMPLES);
+        xy = [uv[0] / (resolution[0] as f64), uv[1] / (resolution[1] as f64)];
+        xy[0] *= (resolution[0] as f64) / (resolution[1] as f64);
+
+        let ray = make_ray(
+            scene.camera.ray.origin,
+            120.0, // standard fov
+            (resolution[0] as f64) / (resolution[1] as f64),
+            xy,
+        );
+
+        // cast ray
+        aliased = aliased + color(&scene, ray, MAX_BOUNCES, SAMPLES);
+    }
+
+    return aliased / (AA as f64);
 }
