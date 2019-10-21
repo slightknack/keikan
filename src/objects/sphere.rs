@@ -32,7 +32,7 @@ impl Trace for Sphere {
         let disc = (b * b) - (a * c);
 
         let hit = if disc > 0.0 { true } else { false };
-        let distance = (0.0 - b - disc.sqrt()) / a;
+        let distance = ((0.0 - b - disc.sqrt()) / a).max((0.0 - b + disc.sqrt()) / a);
         let normal = (ray.point_at(&distance) - self.position).unit();
 
         return (hit, distance, normal);

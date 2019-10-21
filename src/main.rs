@@ -9,7 +9,7 @@ use make_scene::make_scene;
 use structures::vec3::Vec3;
 
 const RESOLUTION: [usize; 2] = [100, 200];
-const RENDER_OUT: &str = "/Users/isaac/Desktop/render.png"; // make this your own path
+const RENDER_OUT: &str = "/Users/isaac/Desktop/render9.png"; // make this your own path
 
 fn main() {
     let mut image: Vec<Vec<Vec3>> = vec![];
@@ -18,7 +18,7 @@ fn main() {
     for x in 0..RESOLUTION[0] {
         let mut row = vec![];
 
-        println!("row {} / {} ", x + 1, RESOLUTION[0]);
+        println!("\rrow {} / {} ", x + 1, RESOLUTION[0]);
 
         for y in 0..RESOLUTION[1] {
             // println!("  c {} / {} ", y + 1, RESOLUTION[1]);

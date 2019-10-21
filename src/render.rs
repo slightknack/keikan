@@ -1,5 +1,5 @@
 use std::f64;
-use std::rc::Rc;
+use std::sync::Arc;
 use rand::Rng;
 
 use crate::structures::vec3::Vec3;
@@ -13,12 +13,12 @@ use crate::objects::traits::{ March, Trace };
 // constants
 const MAX_STEPS: u32 = 128;
 const MAX_DEPTH: u32 = 512;
-const MAX_BOUNCES: u32 = 2;
-const SAMPLES: u32 = 1;
+const MAX_BOUNCES: u32 = 3;
+const SAMPLES: u32 = 25;
 const EPSILON: f64 = 0.01;
 
 // TODO: results are trapped and rays will self-intersect
-fn hit_march(march: &Vec<Rc<dyn March>>, ray: Ray) -> CastResult {
+fn hit_march(march: &Vec<Arc<dyn March>>, ray: Ray) -> CastResult {
     let sdf = |point: Vec3| {
         let mut min = f64::MAX;
         let mut mat = Material::blank();
@@ -65,7 +65,7 @@ fn hit_march(march: &Vec<Rc<dyn March>>, ray: Ray) -> CastResult {
     return CastResult::worst();
 }
 
-fn hit_trace(trace: &Vec<Rc<dyn Trace>>, ray: Ray) -> CastResult {
+fn hit_trace(trace: &Vec<Arc<dyn Trace>>, ray: Ray) -> CastResult {
     // todo: cull behind camera
 
     let mut best = CastResult::worst();
@@ -141,10 +141,8 @@ fn color(scene: &Scene, ray: Ray, bounce: u32) -> Vec3 {
 
     // nothing hit, return the sky
     if !hit || bounce <= 0 {
-        return material.color; // * material.emission;
-    } // } else {
-    //     return material.color;
-    // }
+        return material.color * material.emission;
+    }
 
     // time for some recursion...
     let position = ray.point_at(&distance);
@@ -153,20 +151,21 @@ fn color(scene: &Scene, ray: Ray, bounce: u32) -> Vec3 {
     // a reflection, a diffuse, and a transmission
     let mut diffuse = Vec3::new(0.0, 0.0, 0.0);
     let mut scatter: Ray;
+    let samples = ((SAMPLES / (MAX_BOUNCES - bounce + 1)).max(1));
 
     // diffuse:
-    for _ in 0..SAMPLES {
-        scatter = Ray::through(position, position + normal + (sample_sphere() * material.roughness));
+    for _ in 0..samples { // reduce samples on each bounce
+        scatter = Ray::through(position, position + normal + sample_sphere());
         let sample = color(&scene, scatter, bounce - 1);
 
         // TODO: lambertian thing?
-        diffuse = diffuse + sample; // (scatter.direction.dot(&normal).abs() * sample);
+        diffuse = diffuse + sample * material.color;
     }
 
     let mut specular = Vec3::new(0.0, 0.0, 0.0);
 
     // reflection
-    for _ in 0..SAMPLES {
+    for _ in 0..samples {
         scatter = Ray::through(
             position,
             position + reflect(ray.direction, normal) + sample_sphere() * material.roughness,
@@ -179,21 +178,21 @@ fn color(scene: &Scene, ray: Ray, bounce: u32) -> Vec3 {
     let mut transmission = Vec3::new(0.0, 0.0, 0.0);
 
     // TODO: glass
-    // for _ in 0..SAMPLES {
+    // for _ in 0..samples {
     // }
 
-    // TODO: fresnel
-
-    diffuse = diffuse / SAMPLES as f64;
-    specular = specular / SAMPLES as f64;
+    diffuse = diffuse / (samples as f64);
+    specular = specular / (samples as f64);
 
     let mut result: Vec3;
 
     // combine the diffusion and reflection as per metallicness
     // combine the result of the above combination with refraction as per transmission
     // make source emissive as per the emission parameter
-    result = (specular * material.metallic) + (diffuse * (1.0 - material.metallic));
-    result = (transmission * material.transmission) + (result * (1.0 - material.transmission));
+
+    result = (transmission * material.transmission) + (diffuse * (1.0 - material.transmission)) ;
+    result = result + specular * material.specular;
+    result = result * (1.0 - material.metallic) + specular * material.color * material.metallic;
     result = (material.color * material.emission) + (result * (1.0 - material.emission).max(0.0));
 
     return result;

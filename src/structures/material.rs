@@ -21,7 +21,7 @@ impl Material {
 
     pub fn sky() -> Material {
         Material {
-            color: Vec3::new(0.6, 0.8, 1.0),
+            color: Vec3::new(0.0, 0.7, 1.0),
             emission: 1.0,
 
             metallic: 0.0,
@@ -38,7 +38,7 @@ impl Material {
         // Material {
         //     color: Vec3::new(0.0, 0.0, 0.0),
         //     emission: 0.0,
-        //
+        // 
         //     metallic: 0.0,
         //     specular: 0.0,
         //     roughness: 0.0,
