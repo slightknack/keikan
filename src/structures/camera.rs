@@ -9,12 +9,12 @@ pub struct Camera {
 
 impl Camera {
     pub fn new(from: Vec3, to: Vec3, up: Vec3) -> Camera{
-        let w = (from - to).unit();
-        let u = (up.cross(&w)).unit();
-        let v = w.cross(&u);
+        let f = (to - from).unit();
+
+        println!("f {:?}", f);
 
         Camera {
-            ray: Ray::new(from, v),
+            ray: Ray::new(from, f),
             up: up,
         }
     }

@@ -13,10 +13,10 @@ use crate::objects::traits::{ March, Trace };
 // constants
 const MAX_STEPS: u32 = 128;
 const MAX_DEPTH: u32 = 512;
-const MAX_BOUNCES: u32 = 4;
-const SAMPLES: u32 = 16;
+const MAX_BOUNCES: u32 = 2;
+const SAMPLES: u32 = 4;
 const EPSILON: f64 = 0.001;
-const AA: u32 = 4;
+const AA: u32 = 16;
 
 // TODO: refactor rendering code into impl for scene, camera, and materials, etc.
 // TODO: results are trapped and rays will self-intersect, especially for metals
@@ -66,7 +66,6 @@ fn hit_march(march: &Vec<Arc<dyn March>>, ray: Ray) -> CastResult {
 
         depth += distance;
     }
-
     return CastResult::worst();
 }
 
@@ -148,6 +147,8 @@ fn color(scene: &Scene, ray: Ray, bounce: u32, samples: u32) -> Vec3 {
         return material.color * material.emission;
     }
 
+    return material.color; // (normal + 1.0) * 0.5;
+
     let     position     = ray.point_at(&distance);
     let mut diffuse      = Vec3::new(0.0, 0.0, 0.0);
     let mut specular     = Vec3::new(0.0, 0.0, 0.0);
@@ -156,12 +157,14 @@ fn color(scene: &Scene, ray: Ray, bounce: u32, samples: u32) -> Vec3 {
     // diffuse
     for _ in 0..samples {
         let scatter = Ray::through(position, position + normal + sample_sphere());
-        let sample = color(&scene, scatter, (bounce - 1), 1); // only take one sample
+        let sample = color(&scene, scatter, (bounce - 1), (samples / 2).max(1)); // only take one sample
 
         diffuse = diffuse + material.color * sample;
     }
 
     diffuse = diffuse / (samples as f64);
+
+    // println!("{:?}", diffuse);
 
     //specular
     if material.roughness == 0.0 {
@@ -204,13 +207,6 @@ fn color(scene: &Scene, ray: Ray, bounce: u32, samples: u32) -> Vec3 {
           material.color * material.emission
         )
     );
-
-    // let mut result = (transmission * material.transmission) + (diffuse * (1.0 - material.transmission)) ;
-    // result = result + specular * material.specular;
-    // result = result * (1.0 - material.metallic) + specular * material.color * material.metallic;
-    // result = (material.color * material.emission) + (result * (1.0 - material.emission).max(0.0));
-    //
-    // return result;
 }
 
 // camera or scene
@@ -221,22 +217,43 @@ fn make_ray(origin: Vec3, fov: f64, ratio: f64, uv: [f64; 2]) -> Ray {
     return Ray::new(origin, (Vec3::new(xy[0], xy[1], -z)).unit());
 }
 
+fn translate_ray(camera: Camera, ray: Ray) -> Ray {
+    let f = camera.ray.direction;
+    let s = (f.cross(&camera.up)).unit();
+    let u = s.cross(&f);
+
+    let r = ray.direction;
+
+    return Ray::new(
+        ray.origin,
+        Vec3::new(
+            r.x * s.x + r.y * u.x + r.z * -f.x,
+            r.x * s.y + r.y * u.y + r.z * -f.y,
+            r.x * s.z + r.y * u.z + r.z * -f.z,
+        ),
+    )
+}
+
 pub fn render(scene: &Scene, uv: [f64; 2], resolution: [usize; 2]) -> Vec3 {
     let mut rng = rand::thread_rng();
     let mut aliased = Vec3::new(0.0, 0.0, 0.0);
 
     for _ in 0..AA {
-        let mut xy = [(uv[0] as f64) + rng.gen::<f64>(), (uv[1] as f64) + rng.gen::<f64>()];
+        // shake pixel around
+        // let mut xy = [(uv[1] as f64) + rng.gen::<f64>(), (uv[0] as f64) + rng.gen::<f64>()];
+        let mut xy = uv;
 
-        xy = [uv[0] / (resolution[0] as f64), uv[1] / (resolution[1] as f64)];
+        xy = [xy[0] / (resolution[0] as f64), xy[1] / (resolution[1] as f64)];
         xy[0] *= (resolution[0] as f64) / (resolution[1] as f64);
 
-        let ray = make_ray(
+        let mut ray = make_ray(
             scene.camera.ray.origin,
-            120.0, // standard fov
+            60.0, // standard fov
             (resolution[0] as f64) / (resolution[1] as f64),
             xy,
         );
+
+        ray = translate_ray(scene.camera, ray);
 
         // cast ray
         aliased = aliased + color(&scene, ray, MAX_BOUNCES, SAMPLES);
