@@ -12,11 +12,11 @@ use crate::objects::traits::{ March, Trace };
 
 // constants
 const MAX_STEPS: u32 = 128;
-const MAX_DEPTH: u32 = 512;
-const MAX_BOUNCES: u32 = 2;
+const MAX_DEPTH: u32 = 10;
+const MAX_BOUNCES: u32 = 3;
 const SAMPLES: u32 = 4;
-const EPSILON: f64 = 1.0 / 256.0;
-const AA: u32 = 16;
+const EPSILON: f64 = 0.002;
+const AA: u32 = 4;
 
 // TODO: refactor rendering code into impl for scene, camera, and materials, etc.
 // TODO: results are trapped and rays will self-intersect, especially for metals
@@ -164,25 +164,24 @@ fn color(scene: &Scene, ray: Ray, bounce: u32, samples: u32) -> Vec3 {
 
     diffuse = diffuse / (samples as f64);
 
-    //specular
-    // if material.roughness == 0.0 {
-    //     let scatter = Ray::through(position, reflect(ray.direction, normal) - position);
-    //     specular = color(&scene, scatter, (bounce - 1), samples);
-    // } else {
-    for _ in 0..samples {
+    // specular
+    if material.roughness == 0.0 {
         let scatter = Ray::new(position, reflect(ray.direction, normal).unit());
-        // let scatter = Ray::through(
-        //     position,
-        //     (reflect(ray.direction, normal) + sample_sphere() * material.roughness) - position,
-        // );
+        specular = color(&scene, scatter, (bounce - 1), samples);
+    } else {
+        for _ in 0..samples {
+            let scatter = Ray::new(position, reflect(ray.direction, normal).unit());
+            // let scatter = Ray::through(
+            //     position,
+            //     (reflect(ray.direction, normal) + sample_sphere() * material.roughness) - position,
+            // );
 
-        // sample based on roughness?
-        let sample = color(&scene, scatter, (bounce - 1), (samples / 2).max(1));
-        specular = specular + sample;
+            let sample = color(&scene, scatter, (bounce - 1), (samples / 2).max(1));
+            specular = specular + sample;
+        }
+
+        specular = specular / (samples as f64);
     }
-
-    specular = specular / (samples as f64);
-    // }
 
     // TODO: transmission
 
