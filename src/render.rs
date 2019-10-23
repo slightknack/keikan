@@ -15,7 +15,7 @@ const MAX_STEPS: u32 = 128;
 const MAX_DEPTH: u32 = 512;
 const MAX_BOUNCES: u32 = 2;
 const SAMPLES: u32 = 4;
-const EPSILON: f64 = 0.001;
+const EPSILON: f64 = 1.0 / 256.0;
 const AA: u32 = 16;
 
 // TODO: refactor rendering code into impl for scene, camera, and materials, etc.
@@ -45,7 +45,7 @@ fn hit_march(march: &Vec<Arc<dyn March>>, ray: Ray) -> CastResult {
         ).unit()
     };
 
-    let mut depth = 0.0;
+    let mut depth = EPSILON;
 
     for step in 0..MAX_STEPS {
         let point = ray.point_at(&depth);
@@ -147,7 +147,7 @@ fn color(scene: &Scene, ray: Ray, bounce: u32, samples: u32) -> Vec3 {
         return material.color * material.emission;
     }
 
-    return material.color; // (normal + 1.0) * 0.5;
+    // return (normal + 1.0) * 0.5;
 
     let     position     = ray.point_at(&distance);
     let mut diffuse      = Vec3::new(0.0, 0.0, 0.0);
@@ -156,33 +156,33 @@ fn color(scene: &Scene, ray: Ray, bounce: u32, samples: u32) -> Vec3 {
 
     // diffuse
     for _ in 0..samples {
-        let scatter = Ray::through(position, position + normal + sample_sphere());
-        let sample = color(&scene, scatter, (bounce - 1), (samples / 2).max(1)); // only take one sample
+        let scatter = Ray::through(position, (normal + sample_sphere()) - position);
+        let sample = color(&scene, scatter, (bounce - 1), 1); // (samples / 2).max(1)); // only take one sample
 
         diffuse = diffuse + material.color * sample;
     }
 
     diffuse = diffuse / (samples as f64);
 
-    // println!("{:?}", diffuse);
-
     //specular
-    if material.roughness == 0.0 {
-        let scatter = Ray::through(position, position + reflect(ray.direction, normal));
-        specular = color(&scene, scatter, (bounce - 1), samples);
-    } else {
-        for _ in 0..samples {
-            let scatter = Ray::through(
-                position,
-                position + reflect(ray.direction, normal) + sample_sphere() * material.roughness
-            );
+    // if material.roughness == 0.0 {
+    //     let scatter = Ray::through(position, reflect(ray.direction, normal) - position);
+    //     specular = color(&scene, scatter, (bounce - 1), samples);
+    // } else {
+    for _ in 0..samples {
+        let scatter = Ray::new(position, reflect(ray.direction, normal).unit());
+        // let scatter = Ray::through(
+        //     position,
+        //     (reflect(ray.direction, normal) + sample_sphere() * material.roughness) - position,
+        // );
 
-            let sample = color(&scene, scatter, (bounce - 1), (samples / 2).max(1));
-            specular = specular + sample;
-        }
-
-        specular = specular / (samples as f64);
+        // sample based on roughness?
+        let sample = color(&scene, scatter, (bounce - 1), (samples / 2).max(1));
+        specular = specular + sample;
     }
+
+    specular = specular / (samples as f64);
+    // }
 
     // TODO: transmission
 
@@ -190,9 +190,12 @@ fn color(scene: &Scene, ray: Ray, bounce: u32, samples: u32) -> Vec3 {
     return (
         (
             ( // for dielectric materials. TODO: fresnel blending
-                (transmission *        material.transmission)  // mix transparent
-              + (diffuse      * (1.0 - material.transmission)) // and diffuse
-              + (specular     *        material.specular)      // with a specular layer on top
+                (
+                    (transmission *        material.transmission)  // mix transparent
+                  + (diffuse      * (1.0 - material.transmission)) // and diffuse
+                )
+              + (specular * material.specular) // with a specular layer on top
+              // TODO: specular seems off, violating cons. of energy. review.
             )
           * (1.0 - material.metallic) // lerp with metal
 
@@ -226,10 +229,10 @@ fn translate_ray(camera: Camera, ray: Ray) -> Ray {
 
     return Ray::new(
         ray.origin,
-        Vec3::new(
-            r.x * s.x + r.y * u.x + r.z * -f.x,
-            r.x * s.y + r.y * u.y + r.z * -f.y,
-            r.x * s.z + r.y * u.z + r.z * -f.z,
+        Vec3::new( // cross product
+            (r.x * s.x) + (r.y * u.x) + (r.z * -f.x),
+            (r.x * s.y) + (r.y * u.y) + (r.z * -f.y),
+            (r.x * s.z) + (r.y * u.z) + (r.z * -f.z),
         ),
     )
 }
@@ -240,9 +243,9 @@ pub fn render(scene: &Scene, uv: [f64; 2], resolution: [usize; 2]) -> Vec3 {
 
     for _ in 0..AA {
         // shake pixel around
-        // let mut xy = [(uv[1] as f64) + rng.gen::<f64>(), (uv[0] as f64) + rng.gen::<f64>()];
-        let mut xy = uv;
+        let mut xy = [(uv[0] as f64) + rng.gen::<f64>(), (uv[1] as f64) + rng.gen::<f64>()];
 
+        // normalize coordinates
         xy = [xy[0] / (resolution[0] as f64), xy[1] / (resolution[1] as f64)];
         xy[0] *= (resolution[0] as f64) / (resolution[1] as f64);
 

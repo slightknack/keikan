@@ -12,7 +12,7 @@ use structures::vec3::Vec3;
 const RESOLUTION: [usize; 2] = [200, 100];
 const RENDER_OUT: &str = "/Users/isaac/Desktop/render9.png"; // make this your own path
 
-fn main() {
+fn main() {    
     let mut image: Vec<Vec<Vec3>> = vec![];
     let scene = make_scene();
 

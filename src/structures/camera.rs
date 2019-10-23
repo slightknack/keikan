@@ -11,8 +11,6 @@ impl Camera {
     pub fn new(from: Vec3, to: Vec3, up: Vec3) -> Camera{
         let f = (to - from).unit();
 
-        println!("f {:?}", f);
-
         Camera {
             ray: Ray::new(from, f),
             up: up,

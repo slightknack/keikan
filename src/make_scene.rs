@@ -6,7 +6,7 @@ use crate::objects::sphere::Sphere;
 
 pub fn make_scene() -> Scene {
     let camera = Camera::new(
-        Vec3::new(2.0, 2.0, 2.0),
+        Vec3::new(5.0, 0.0, 5.0),
         Vec3::new(0.0, 0.0, 0.0),
         Vec3::new(0.0, 1.0, 0.0),
     );
@@ -14,13 +14,13 @@ pub fn make_scene() -> Scene {
     let mut scene = Scene::new(camera);
 
     let plastic = Material {
-        color: Vec3::new(1.0, 0.0, 0.0), // red
+        color: Vec3::new(0.5, 0.5, 0.5), // red
         emission: 0.0, // not a light!
 
         // plastic surface
         metallic: 0.0,
-        specular: 0.5,
-        roughness: 0.5,
+        specular: 0.2,
+        roughness: 0.1,
 
         // see-through
         transmission: 0.0,
@@ -69,14 +69,9 @@ pub fn make_scene() -> Scene {
         }
     }
 
-    scene.add_march(Sphere::new(Vec3::new(0.0, 0.0, 0.0), 1.0, light));
-    // scene.add_trace(Sphere::new(Vec3::new(0.0, 2.0, 0.0), 1.0, plastic));
-    // scene.add_trace(Sphere::new(Vec3::new(2.0, 2.0, 0.0), 1.0, light));
-    // scene.add_trace(Sphere::new(Vec3::new(-2.0, 0.0, 0.0), 1.0, plastic));
-
-    scene.add_march(Sphere::new(Vec3::new(1.0, 0.0, 0.0), 0.1, colored(Vec3::new(1.0, 0.0, 0.0))));
-    scene.add_march(Sphere::new(Vec3::new(0.0, 1.0, 0.0), 0.1, colored(Vec3::new(0.0, 1.0, 0.0))));
-    scene.add_march(Sphere::new(Vec3::new(0.0, 0.0, 1.0), 0.1, colored(Vec3::new(0.0, 0.0, 1.0))));
+    scene.add_march(Sphere::new(Vec3::new(1.2, 1.2, 1.2), 0.1, light));
+    scene.add_march(Sphere::new(Vec3::new(0.0, 0.0, 0.0), 1.0, plastic));
+    scene.add_march(Sphere::new(Vec3::new(0.0, -100.5, 0.0), 100.0, metal));
 
     return scene;
 }
