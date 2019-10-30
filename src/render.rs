@@ -14,9 +14,9 @@ use crate::objects::traits::{ March, Trace };
 const MAX_STEPS: u32 = 128;
 const MAX_DEPTH: u32 = 10;
 const MAX_BOUNCES: u32 = 3;
-const SAMPLES: u32 = 4;
+const SAMPLES: u32 = 8;
 const EPSILON: f64 = 0.002;
-const AA: u32 = 4;
+const AA: u32 = 16;
 
 // TODO: refactor rendering code into impl for scene, camera, and materials, etc.
 // TODO: results are trapped and rays will self-intersect, especially for metals

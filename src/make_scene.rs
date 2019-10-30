@@ -15,31 +15,33 @@ pub fn make_scene() -> Scene {
     let mut scene = Scene::new(camera);
 
     let plastic = Material {
-        color: Vec3::new(0.9, 0.9, 0.9), // red
+        color: Vec3::new(0.1, 0.1, 0.1), // red
         emission: 0.0, // not a light!
 
         // plastic surface
         metallic: 0.0,
-        specular: 0.2,
-        roughness: 0.0,
+        specular: 0.0,
+        roughness: 0.5,
 
         // see-through
         transmission: 0.0,
         ior: 0.0,
     };
 
-    let light = Material {
-        color: Vec3::new(1.0, 1.0, 0.6), // white
-        emission: 10.0, // a light!
+    let light = |color: Vec3| {
+            Material {
+            color: color, // white
+            emission: 10.0, // a light!
 
-        // shiny plastic surface
-        metallic: 0.0,
-        specular: 0.3,
-        roughness: 0.0,
+            // shiny plastic surface
+            metallic: 0.0,
+            specular: 0.0,
+            roughness: 1.0,
 
-        // not transparent
-        transmission: 0.0,
-        ior: 0.0,
+            // not transparent
+            transmission: 0.0,
+            ior: 0.0,
+        }
     };
 
     let metal = Material {
@@ -56,7 +58,9 @@ pub fn make_scene() -> Scene {
         ior: 0.0,
     };
 
-    scene.add_trace(Sphere::new(Vec3::new(4.0, 4.0, 4.0), 2.0, light));
+    scene.add_trace(Sphere::new(Vec3::new(4.0, 4.0, 4.0), 2.0, light(Vec3::new(1.0, 0.0, 0.0))));
+    scene.add_trace(Sphere::new(Vec3::new(4.0, 0.0, 4.0), 2.0, light(Vec3::new(0.0, 1.0, 0.0))));
+    scene.add_trace(Sphere::new(Vec3::new(4.0, 4.0, 0.0), 2.0, light(Vec3::new(0.0, 0.0, 1.0))));
     scene.add_march(Mandelbulb::new(Vec3::new(0.0, 0.0, 0.0), 8.0, 10, metal));
     scene.add_trace(Sphere::new(Vec3::new(0.0, -101.0, 0.0), 100.0, plastic));
 
