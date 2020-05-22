@@ -8,7 +8,7 @@ I've tried my hand a few toy path-tracers and ray-marchers in the past, and I wa
 ## Design Goals
 Keikan is able to render a large variety of objects, including fractals to near-infinite precision, due to its support of both path-tracing and ray-marching.
 
-Ray-marching is rendering through the use of a[signed distance field](https://iquilezles.org/www/articles/distfunctions/distfunctions.htm).
+Ray-marching is rendering through the use of a [signed distance field](https://iquilezles.org/www/articles/distfunctions/distfunctions.htm).
 I personally got interested in computer graphics through writing ray-marching renderer, so I decided that if I wrote another rendering engine, I'd have include ray-marching as a technique.
 
 ## Results
