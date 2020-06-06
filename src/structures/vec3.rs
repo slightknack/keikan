@@ -109,7 +109,6 @@ impl Vec3 {
         return [color.x as u8, color.y as u8, color.z as u8];
     }
 
-    // -> ()
     pub fn print(&self) {
         println!("{:?}", (self.x, self.y, self.z))
     }
@@ -446,15 +445,5 @@ pub mod test {
             vec.unit(),
             test,
         );
-    }
-
-    #[test]
-    fn test_tone_map() {
-        let over = Vec3::new(10.0, 10.0, 10.0);
-
-        assert_eq!(
-            over.tone_map(&1.0),
-            Vec3::new(0.0, 0.0, 0.0)
-        )
     }
 }

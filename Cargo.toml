@@ -11,3 +11,4 @@ repository = "https://github.com/Tloru/keikan"
 [dependencies]
 image = "*"
 rand = "0.6.5"
+tokio = { version = "0.2", features = ["full"] }

@@ -13,10 +13,10 @@ use crate::objects::traits::{ March, Trace };
 // constants
 const MAX_STEPS: u32 = 128;
 const MAX_DEPTH: u32 = 10;
-const MAX_BOUNCES: u32 = 3;
-const SAMPLES: u32 = 8;
+const MAX_BOUNCES: u32 = 5;
+const SAMPLES: u32 = 1;
 const EPSILON: f64 = 0.002;
-const AA: u32 = 16;
+const AA: u32 = 1;
 
 // TODO: refactor rendering code into impl for scene, camera, and materials, etc.
 // TODO: results are trapped and rays will self-intersect, especially for metals
@@ -211,51 +211,14 @@ fn color(scene: &Scene, ray: Ray, bounce: u32, samples: u32) -> Vec3 {
     );
 }
 
-// camera or scene
-fn make_ray(origin: Vec3, fov: f64, ratio: f64, uv: [f64; 2]) -> Ray {
-    // I apologize for this garbage
-    let xy = [uv[0] - ratio * 0.5, uv[1] - 0.5];
-    let z = 1.0 / (fov.to_radians() / 2.0).tan();
-    return Ray::new(origin, (Vec3::new(xy[0], xy[1], -z)).unit());
-}
-
-fn translate_ray(camera: Camera, ray: Ray) -> Ray {
-    let f = camera.ray.direction;
-    let s = (f.cross(&camera.up)).unit();
-    let u = s.cross(&f);
-
-    let r = ray.direction;
-
-    return Ray::new(
-        ray.origin,
-        Vec3::new( // cross product
-            (r.x * s.x) + (r.y * u.x) + (r.z * -f.x),
-            (r.x * s.y) + (r.y * u.y) + (r.z * -f.y),
-            (r.x * s.z) + (r.y * u.z) + (r.z * -f.z),
-        ),
-    )
-}
-
-pub fn render(scene: &Scene, uv: [f64; 2], resolution: [usize; 2]) -> Vec3 {
+pub fn render(scene: &Scene, uv: (f64, f64)) -> Vec3 {
     let mut rng = rand::thread_rng();
     let mut aliased = Vec3::new(0.0, 0.0, 0.0);
 
     for _ in 0..AA {
         // shake pixel around
-        let mut xy = [(uv[0] as f64) + rng.gen::<f64>(), (uv[1] as f64) + rng.gen::<f64>()];
-
-        // normalize coordinates
-        xy = [xy[0] / (resolution[0] as f64), xy[1] / (resolution[1] as f64)];
-        xy[0] *= (resolution[0] as f64) / (resolution[1] as f64);
-
-        let mut ray = make_ray(
-            scene.camera.ray.origin,
-            60.0, // standard fov
-            (resolution[0] as f64) / (resolution[1] as f64),
-            xy,
-        );
-
-        ray = translate_ray(scene.camera, ray);
+        let xy = (uv.0 + rng.gen::<f64>(), uv.1 + rng.gen::<f64>());
+        let ray = scene.camera.make_ray(xy);
 
         // cast ray
         aliased = aliased + color(&scene, ray, MAX_BOUNCES, SAMPLES);

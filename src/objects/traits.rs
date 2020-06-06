@@ -13,3 +13,7 @@ pub trait Trace {
     fn material(&self) -> Material;
     fn trace(&self, ray: Ray) -> (bool, f64, Vec3);
 }
+
+// pub trait Textured {
+//     fn material(&self, point: Vec3) -> Material;
+// }

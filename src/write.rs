@@ -1,11 +1,10 @@
 use image::{ ImageBuffer, Rgb, ImageRgb8 };
 use std::path::Path;
+use std::io;
 
 use crate::structures::vec3::Vec3;
 
-pub fn png(image: Vec<Vec<Vec3>>, file: String) {
-    let path = Path::new(&file);
-
+pub fn png(image: Vec<Vec<Vec3>>, path: &Path) -> io::Result<()> {
     // TODO: error handling
 
     // new buffer the width and height of the render
@@ -20,6 +19,7 @@ pub fn png(image: Vec<Vec<Vec3>>, file: String) {
         }
     }
 
-    ImageRgb8(buffer).save(&path);
-    println!("Render saved to {}", path.display())
+    ImageRgb8(buffer).save(&path)?;
+    println!("Render saved to {}", path.display());
+    return Ok(());
 }
