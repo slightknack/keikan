@@ -4,7 +4,6 @@ use rand::Rng;
 
 use crate::structures::vec3::Vec3;
 use crate::structures::ray::Ray;
-use crate::structures::camera::Camera;
 use crate::structures::material::Material;
 use crate::structures::scene::Scene;
 use crate::structures::cast_result::CastResult;
@@ -47,7 +46,7 @@ fn hit_march(march: &Vec<Arc<dyn March>>, ray: Ray) -> CastResult {
 
     let mut depth = EPSILON;
 
-    for step in 0..MAX_STEPS {
+    for _step in 0..MAX_STEPS {
         let point = ray.point_at(&depth);
         let (distance, material) = sdf(point);
 
@@ -152,12 +151,12 @@ fn color(scene: &Scene, ray: Ray, bounce: u32, samples: u32) -> Vec3 {
     let     position     = ray.point_at(&distance);
     let mut diffuse      = Vec3::new(0.0, 0.0, 0.0);
     let mut specular     = Vec3::new(0.0, 0.0, 0.0);
-    let mut transmission = Vec3::new(0.0, 0.0, 0.0);
+    let     transmission = Vec3::new(0.0, 0.0, 0.0);
 
     // diffuse
     for _ in 0..samples {
         let scatter = Ray::through(position, (normal + sample_sphere()) - position);
-        let sample = color(&scene, scatter, (bounce - 1), 1); // (samples / 2).max(1)); // only take one sample
+        let sample = color(&scene, scatter, bounce - 1, 1); // (samples / 2).max(1)); // only take one sample
 
         diffuse = diffuse + material.color * sample;
     }
@@ -167,7 +166,7 @@ fn color(scene: &Scene, ray: Ray, bounce: u32, samples: u32) -> Vec3 {
     // specular
     if material.roughness == 0.0 {
         let scatter = Ray::new(position, reflect(ray.direction, normal).unit());
-        specular = color(&scene, scatter, (bounce - 1), samples);
+        specular = color(&scene, scatter, bounce - 1, samples);
     } else {
         for _ in 0..samples {
             let scatter = Ray::new(position, reflect(ray.direction, normal).unit());
@@ -176,7 +175,7 @@ fn color(scene: &Scene, ray: Ray, bounce: u32, samples: u32) -> Vec3 {
             //     (reflect(ray.direction, normal) + sample_sphere() * material.roughness) - position,
             // );
 
-            let sample = color(&scene, scatter, (bounce - 1), (samples / 2).max(1));
+            let sample = color(&scene, scatter, bounce - 1, (samples / 2).max(1));
             specular = specular + sample;
         }
 
@@ -186,29 +185,19 @@ fn color(scene: &Scene, ray: Ray, bounce: u32, samples: u32) -> Vec3 {
     // TODO: transmission
 
     // combine the samples in a PBR manner
-    return (
-        (
-            ( // for dielectric materials. TODO: fresnel blending
-                (
-                    (transmission *        material.transmission)  // mix transparent
-                  + (diffuse      * (1.0 - material.transmission)) // and diffuse
-                )
-              + (specular * material.specular) // with a specular layer on top
-              // TODO: specular seems off, violating cons. of energy. review.
-            )
-          * (1.0 - material.metallic) // lerp with metal
+    // mix transparent and diffuse
+    let base = (transmission * material.transmission) + (diffuse * (1.0 - material.transmission));
 
-          + ( // for metallic materials
-                specular * material.color
-            )
-          * material.metallic
-        )
-      * (1.0 - material.emission).max(0.0) // modified lerp with emissive
+    // TODO: specular seems off, violating cons. of energy. review.
+    let dielectric = base + (specular * material.specular); // with a specular layer on top
+    let electric = specular * material.color; // for metallic materials
 
-      + ( // for emissive materials
-          material.color * material.emission
-        )
-    );
+    // lerp electric and dielectric
+    let non_emmisive = (electric * material.metallic) + (dielectric * (1.0 - material.metallic));
+    let combined = (material.color * material.emission) + (non_emmisive * (1.0 - material.emission).max(0.0));
+
+    // final color.
+    return combined;
 }
 
 pub fn render(scene: &Scene, uv: (f64, f64)) -> Vec3 {

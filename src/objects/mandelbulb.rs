@@ -35,7 +35,7 @@ impl March for Mandelbulb {
         let mut hit = 0.0;
         let mut d = 1.0;
 
-        for i in 0..self.iterations {
+        for _ in 0..self.iterations {
             rad = zn.length();
 
             if rad > 2.0 {
