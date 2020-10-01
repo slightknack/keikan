@@ -20,9 +20,13 @@ impl Material {
     // TODO
 
     pub fn sky() -> Material {
+        Material::emissive(Vec3::new(0.25, 0.4, 1.0), 1.0)
+    }
+
+    pub fn emissive(color: Vec3, emission: f64) -> Material {
         Material {
-            color: Vec3::new(0.25, 0.4, 1.0),
-            emission: 1.0,
+            color,
+            emission,
 
             metallic: 0.0,
             specular: 0.0,
@@ -33,18 +37,33 @@ impl Material {
         }
     }
 
-    pub fn blank() -> Material {
-        Material::sky()
-        // Material {
-        //     color: Vec3::new(0.0, 0.0, 0.0),
-        //     emission: 0.0,
-        //
-        //     metallic: 0.0,
-        //     specular: 0.0,
-        //     roughness: 0.0,
-        //
-        //     transmission: 0.0,
-        //     ior: 0.0,
-        // }
+    pub fn metal(color: Vec3, specular: f64, roughness: f64) -> Material {
+        Material {
+            color,
+            emission: 0.0,
+
+            metallic: 1.0,
+            specular,
+            roughness,
+
+            transmission: 0.0,
+            ior: 0.0,
+        }
     }
+
+    pub fn dielectric(color: Vec3, specular: f64, roughness: f64) -> Material {
+        Material {
+            color,
+            emission: 0.0,
+
+            metallic: 0.0,
+            specular,
+            roughness,
+
+            transmission: 0.0,
+            ior: 0.0,
+        }
+    }
+
+    // TODO: transparent
 }
