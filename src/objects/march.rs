@@ -6,8 +6,8 @@ use crate::structures::vec3::Vec3;
 use crate::structures::ray::Ray;
 
 use crate::render::EPSILON;
-pub const MAX_STEPS: u32 = 128;
-pub const MAX_DEPTH: f64 = 10.0;
+pub const MAX_STEPS: u32 = 64;
+pub const MAX_DEPTH: f64 = 40.0;
 
 pub trait March {
     fn material(&self) -> Material;

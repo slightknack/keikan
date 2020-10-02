@@ -46,7 +46,7 @@ pub fn scene() -> (Scene, Camera) {
 
 pub fn shadow() -> (Scene, Camera) {
     let camera = Camera::new(
-        Vec3::new(5.0, 5.0, 5.0),
+        Vec3::new(0.0, 6.2, 0.1),
         Vec3::new(0.0, 1.0, 0.0),
         Vec3::new(0.0, 1.0, 0.0),
         60.0,
@@ -54,17 +54,18 @@ pub fn shadow() -> (Scene, Camera) {
     );
 
     let mut scene = Scene::empty();
-    scene.bg = Material::emissive(Vec3::new(1.0, 1.0, 1.0), 0.2);
+    scene.bg = Material::emissive(Vec3::new(0.5, 0.5, 1.0), 0.2);
 
     let light = Material::emissive(Vec3::new(1.0, 1.0, 1.0), 2.0);
     let chalk = Material::dielectric(Vec3::new(0.5, 0.5, 0.5), 0.0, 0.8);
-    let mirror = Material::metal(Vec3::new(0.7, 0.7, 0.7), 0.0, 1.0);
+    let mirror = Material::metal(Vec3::new(0.7, 0.7, 0.7), 0.0, 0.2);
 
-    let sphere = Sphere::new(Vec3::new(0.0, 1.0, 0.0), 1.0, mirror);
-    let lamp   = Sphere::new(Vec3::new(0.0, 3.0, 2.0), 0.5, light);
+    // let sphere = Sphere::new(Vec3::new(0.0, 1.0, 0.0), 1.0, mirror);
+    let bulb = Mandelbulb::new(Vec3::new(0.0, 1.0, 0.0), 8.0, 10, mirror);
+    let lamp   = Sphere::new(Vec3::new(0.0, 1.0, 2.0), 0.5, light);
     let ground = Plane::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0), chalk);
 
-    scene.add_trace(Box::new(sphere));
+    scene.add_march(Box::new(bulb));
     scene.add_trace(Box::new(lamp));
     scene.add_trace(Box::new(ground));
 

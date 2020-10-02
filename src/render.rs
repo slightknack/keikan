@@ -11,10 +11,10 @@ use crate::objects::march::March;
 use crate::objects::trace::Trace;
 
 // constants
-pub const MAX_BOUNCES: u32 = 10;
+pub const MAX_BOUNCES: u32 = 3;
 pub const BRANCH: u32 = 1; // for tree-based path-tracing
-pub const EPSILON: f64 = 0.02;
-pub const AA: u32 = 4;
+pub const EPSILON: f64 = 0.002;
+pub const AA: u32 = 8;
 
 fn cast_ray(scene: &Scene, ray: Ray) -> Option<Cast> {
     let march = March::hit(&scene.march, ray);
@@ -43,6 +43,10 @@ fn sample_sphere() -> Vec3 {
     }
 
     return point;
+}
+
+fn sample_sphere_surface() -> Vec3 {
+    sample_sphere().unit()
 }
 
 fn reflect(v: Vec3, n: Vec3) -> Vec3 {
@@ -77,7 +81,9 @@ fn color(scene: &Scene, ray: Ray, bounce: u32, branches: u32) -> Vec3 {
         None => return scene.bg.color * scene.bg.emission,
     };
 
-    // return (normal + 1.0) * 0.5;
+    // let d = (distance - 5.7) / 2.0;
+    // return Vec3::new(d, d, d);
+    return (normal + 1.0) * 0.5;
 
     let     position     = ray.point_at(&distance);
     let mut diffuse      = Vec3::new(0.0, 0.0, 0.0);
@@ -86,7 +92,7 @@ fn color(scene: &Scene, ray: Ray, bounce: u32, branches: u32) -> Vec3 {
 
     // diffuse
     for _ in 0..branches {
-        let scatter = Ray::through(position, (normal + sample_sphere()) - position);
+        let scatter = Ray::new(position, (sample_sphere_surface() + normal).unit());
         let sample = color(&scene, scatter, bounce - 1, 1); // (samples / 2).max(1)); // only take one sample
 
         diffuse = diffuse + material.color * sample;
@@ -95,23 +101,18 @@ fn color(scene: &Scene, ray: Ray, bounce: u32, branches: u32) -> Vec3 {
     diffuse = diffuse / (branches as f64);
 
     // specular
-    if material.roughness == 0.0 {
-        let scatter = Ray::new(position, reflect(ray.direction, normal).unit());
-        specular = color(&scene, scatter, bounce - 1, branches);
-    } else {
-        for _ in 0..branches {
-            // let scatter = Ray::new(position, reflect(ray.direction, normal).unit());
-            let scatter = Ray::new(
-                position,
-                reflect(ray.direction, normal + (sample_sphere() * material.roughness)),
-            );
+    for _ in 0..branches {
+        // let scatter = Ray::new(position, reflect(ray.direction, normal).unit());
+        let scatter = Ray::new(
+            position,
+            reflect(ray.direction, normal + (sample_sphere() * material.roughness)),
+        );
 
-            let sample = color(&scene, scatter, bounce - 1, (branches / 2).max(1));
-            specular = specular + sample;
-        }
-
-        specular = specular / (branches as f64);
+        let sample = color(&scene, scatter, bounce - 1, (branches / 2).max(1));
+        specular = specular + sample;
     }
+
+    specular = specular / (branches as f64);
 
     return pbr(material, transmission, diffuse, specular);
 }
@@ -147,14 +148,27 @@ pub fn sample(
 ) -> Vec3 {
     let mut rng = rand::thread_rng();
     let mut aliased = Vec3::new(0.0, 0.0, 0.0);
+    let mut sample = 1;
 
-    for _ in 0..AA {
+    for _s in 0..AA {
         // shake pixel around
         let (x, y) = (u + rng.gen::<f64>(), v + rng.gen::<f64>());
         let ray = camera.make_ray(x, y);
 
+        let c = color(&scene, ray, MAX_BOUNCES, BRANCH);
+
+        let so_far = (aliased + c) / sample as f64;
+        let previous = aliased / ((sample - 1) as f64 + EPSILON);
+        let change = (so_far - previous).length();
+
+        if change < 0.001 && sample > (AA / 2) {
+            // println!("{}", sample);
+            return so_far;
+        }
+
         // cast ray
-        aliased = aliased + color(&scene, ray, MAX_BOUNCES, BRANCH);
+        aliased = aliased + c;
+        sample += 1;
     }
 
     return aliased / (AA as f64);
