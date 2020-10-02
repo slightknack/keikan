@@ -1,101 +1,32 @@
 use std::f64;
-use std::sync::Arc;
 use rand::Rng;
 
 use crate::structures::vec3::Vec3;
 use crate::structures::ray::Ray;
 use crate::structures::material::Material;
 use crate::structures::scene::Scene;
-use crate::structures::cast_result::CastResult;
-use crate::objects::traits::{ March, Trace };
+use crate::structures::cast::Cast;
+use crate::structures::camera::Camera;
+use crate::objects::march::March;
+use crate::objects::trace::Trace;
 
 // constants
-const MAX_STEPS: u32 = 128;
-const MAX_DEPTH: u32 = 10;
-const MAX_BOUNCES: u32 = 5;
-const SAMPLES: u32 = 1;
-const EPSILON: f64 = 0.002;
-const AA: u32 = 1;
+pub const MAX_BOUNCES: u32 = 10;
+pub const BRANCH: u32 = 1; // for tree-based path-tracing
+pub const EPSILON: f64 = 0.02;
+pub const AA: u32 = 4;
 
-// TODO: refactor rendering code into impl for scene, camera, and materials, etc.
-// TODO: results are trapped and rays will self-intersect, especially for metals
-fn hit_march(march: &Vec<Arc<dyn March>>, ray: Ray) -> CastResult {
-    let sdf = |point: Vec3| {
-        let mut min = f64::MAX;
-        let mut mat = Material::blank();
+fn cast_ray(scene: &Scene, ray: Ray) -> Option<Cast> {
+    let march = March::hit(&scene.march, ray);
+    let trace = Trace::hit(&scene.trace, ray);
 
-        for object in march.iter() {
-            let distance = object.march(point);
-
-            if distance <= min {
-                min = distance;
-                mat = object.material();
-            }
-        }
-
-        return (min, mat);
-    };
-
-    let normal = |p: Vec3| {
-        Vec3::new(
-            sdf(Vec3::new(p.x + EPSILON, p.y, p.z)).0 - sdf(Vec3::new(p.x - EPSILON, p.y, p.z)).0,
-            sdf(Vec3::new(p.x, p.y + EPSILON, p.z)).0 - sdf(Vec3::new(p.x, p.y - EPSILON, p.z)).0,
-            sdf(Vec3::new(p.x, p.y, p.z + EPSILON)).0 - sdf(Vec3::new(p.x, p.y, p.z - EPSILON)).0,
-        ).unit()
-    };
-
-    let mut depth = EPSILON;
-
-    for _step in 0..MAX_STEPS {
-        let point = ray.point_at(&depth);
-        let (distance, material) = sdf(point);
-
-        if distance <= EPSILON {
-            let normal = normal(point); // quick normal estimation
-
-            // let mut mat = Material::blank();
-            // mat.color = normal;
-
-            return CastResult::new(true, depth, normal, material);
-        }
-
-        if distance >= MAX_DEPTH.into() {
-            break;
-        }
-
-        depth += distance;
+    match (march, trace) {
+        (None, None) => None,
+        (None, t @ Some(_)) => t,
+        (m @ Some(_), None) => m,
+        // trace results are more exact, so favor in a tie.
+        (Some(m), Some(t)) => Some(if m.distance < t.distance { m } else { t }),
     }
-    return CastResult::worst();
-}
-
-fn hit_trace(trace: &Vec<Arc<dyn Trace>>, ray: Ray) -> CastResult {
-    let mut best = CastResult::worst();
-
-    for object in trace.iter() {
-        let (hit, distance, normal) = object.trace(ray);
-
-        if hit && distance > EPSILON && (best.hit == false || distance <= best.distance) {
-            best = CastResult::new(hit, distance, normal, object.material());
-        }
-    }
-
-    return best;
-}
-
-fn cast_ray(scene: &Scene, ray: Ray) -> CastResult {
-    let march = hit_march(&scene.march, ray);
-    let trace = hit_trace(&scene.trace, ray);
-
-    // nothing was hit, so return the sky
-    if !march.hit && !trace.hit {
-        return CastResult::worst();
-    }
-
-    if  trace.hit && !march.hit || trace.distance <= march.distance {
-        return trace;
-    }
-
-    return march;
 }
 
 fn sample_sphere() -> Vec3 {
@@ -138,13 +69,13 @@ fn refract(v: &Vec3, n: &Vec3, ni_over_nt: f64, refracted: &mut Vec3) -> bool {
 }
 
 // simplify
-fn color(scene: &Scene, ray: Ray, bounce: u32, samples: u32) -> Vec3 {
-    let (hit, distance, normal, material) = cast_ray(&scene, ray).unpack();
-
-    // nothing hit, return the sky
-    if !hit || bounce <= 0 {
-        return material.color * material.emission;
-    }
+fn color(scene: &Scene, ray: Ray, bounce: u32, branches: u32) -> Vec3 {
+    let (distance, normal, material) = match cast_ray(&scene, ray) {
+        Some(cast) if bounce != 0 => (cast.distance, cast.normal, cast.material),
+        // hit the sky or traced for too long
+        Some(_) => return Vec3::new(0.0, 0.0, 0.0),
+        None => return scene.bg.color * scene.bg.emission,
+    };
 
     // return (normal + 1.0) * 0.5;
 
@@ -154,37 +85,46 @@ fn color(scene: &Scene, ray: Ray, bounce: u32, samples: u32) -> Vec3 {
     let     transmission = Vec3::new(0.0, 0.0, 0.0);
 
     // diffuse
-    for _ in 0..samples {
+    for _ in 0..branches {
         let scatter = Ray::through(position, (normal + sample_sphere()) - position);
         let sample = color(&scene, scatter, bounce - 1, 1); // (samples / 2).max(1)); // only take one sample
 
         diffuse = diffuse + material.color * sample;
     }
 
-    diffuse = diffuse / (samples as f64);
+    diffuse = diffuse / (branches as f64);
 
     // specular
     if material.roughness == 0.0 {
         let scatter = Ray::new(position, reflect(ray.direction, normal).unit());
-        specular = color(&scene, scatter, bounce - 1, samples);
+        specular = color(&scene, scatter, bounce - 1, branches);
     } else {
-        for _ in 0..samples {
-            let scatter = Ray::new(position, reflect(ray.direction, normal).unit());
-            // let scatter = Ray::through(
-            //     position,
-            //     (reflect(ray.direction, normal) + sample_sphere() * material.roughness) - position,
-            // );
+        for _ in 0..branches {
+            // let scatter = Ray::new(position, reflect(ray.direction, normal).unit());
+            let scatter = Ray::new(
+                position,
+                reflect(ray.direction, normal + (sample_sphere() * material.roughness)),
+            );
 
-            let sample = color(&scene, scatter, bounce - 1, (samples / 2).max(1));
+            let sample = color(&scene, scatter, bounce - 1, (branches / 2).max(1));
             specular = specular + sample;
         }
 
-        specular = specular / (samples as f64);
+        specular = specular / (branches as f64);
     }
 
+    return pbr(material, transmission, diffuse, specular);
+}
+
+// combine samples in a PBR manner
+pub fn pbr(
+    material: Material,
+    transmission: Vec3,
+    diffuse: Vec3,
+    specular: Vec3,
+) -> Vec3 {
     // TODO: transmission
 
-    // combine the samples in a PBR manner
     // mix transparent and diffuse
     let base = (transmission * material.transmission) + (diffuse * (1.0 - material.transmission));
 
@@ -200,17 +140,21 @@ fn color(scene: &Scene, ray: Ray, bounce: u32, samples: u32) -> Vec3 {
     return combined;
 }
 
-pub fn render(scene: &Scene, uv: (f64, f64)) -> Vec3 {
+pub fn sample(
+    scene: &Scene,
+    camera: &Camera,
+    u: f64, v: f64
+) -> Vec3 {
     let mut rng = rand::thread_rng();
     let mut aliased = Vec3::new(0.0, 0.0, 0.0);
 
     for _ in 0..AA {
         // shake pixel around
-        let xy = (uv.0 + rng.gen::<f64>(), uv.1 + rng.gen::<f64>());
-        let ray = scene.camera.make_ray(xy);
+        let (x, y) = (u + rng.gen::<f64>(), v + rng.gen::<f64>());
+        let ray = camera.make_ray(x, y);
 
         // cast ray
-        aliased = aliased + color(&scene, ray, MAX_BOUNCES, SAMPLES);
+        aliased = aliased + color(&scene, ray, MAX_BOUNCES, BRANCH);
     }
 
     return aliased / (AA as f64);

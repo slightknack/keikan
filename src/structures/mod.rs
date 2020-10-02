@@ -3,4 +3,4 @@ pub mod ray;
 pub mod material;
 pub mod camera;
 pub mod scene;
-pub mod cast_result;
+pub mod cast;

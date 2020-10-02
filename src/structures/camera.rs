@@ -5,14 +5,14 @@ use crate::structures::ray::Ray;
 pub struct Camera {
     pub ray: Ray, // position and direction of camera
     pub up: Vec3, // up vector of camera
-    pub fov: f64, // frame of view, in radians
+    pub fov: f64, // frame of view, in degrees
     pub reso: (usize, usize), // resolution of camera, in pixels
 }
 
 impl Camera {
-    pub fn new(from: Vec3, to: Vec3, up: Vec3, reso: (usize, usize)) -> Camera {
+    pub fn new(from: Vec3, to: Vec3, up: Vec3, fov: f64, reso: (usize, usize)) -> Camera {
         let f = (to - from).unit();
-        Camera { ray: Ray::new(from, f), up, fov: 10.0, reso }
+        Camera { ray: Ray::new(from, f), up, fov, reso }
     }
 
     fn ratio(&self) -> f64 {
@@ -26,7 +26,7 @@ impl Camera {
     // x, y is pixel location on camera sensor
     pub fn make_ray(&self, x: f64, y: f64) -> Ray {
         // normalize coordinates
-        let (mut u, mut v) = (x / (self.width() as f64), y / (self.height() as f64));
+        let (mut u, v) = (x / (self.width() as f64), y / (self.height() as f64));
         u *= self.ratio();
         let (u, v) = (u - self.ratio() * 0.5, v - 0.5);
 

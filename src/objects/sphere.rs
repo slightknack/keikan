@@ -1,7 +1,8 @@
 use crate::structures::vec3::Vec3;
 use crate::structures::ray::Ray;
 use crate::structures::material::Material;
-use crate::objects::traits::{ March, Trace };
+use crate::objects::march::March;
+use crate::objects::trace::Trace;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Sphere {
@@ -23,7 +24,7 @@ impl Sphere {
 impl Trace for Sphere {
     fn material(&self) -> Material { self.material }
 
-    fn trace(&self, ray: Ray) -> (bool, f64, Vec3) {
+    fn trace(&self, ray: Ray) -> Option<(f64, Vec3)> {
         let oc = ray.origin - self.position;
 
         let a = ray.direction.dot(&ray.direction);
@@ -31,11 +32,10 @@ impl Trace for Sphere {
         let c = oc.dot(&oc) - self.radius * self.radius;
         let disc = (b * b) - (a * c);
 
-        let hit = if disc > 0.0 { true } else { false };
         let distance = ((0.0 - b - disc.sqrt()) / a).min((0.0 - b + disc.sqrt()) / a);
         let normal = (ray.point_at(&distance) - self.position).unit();
 
-        return (hit, distance, normal);
+        return if disc > 0.0 { Some((distance, normal)) } else { None };
     }
 }
 

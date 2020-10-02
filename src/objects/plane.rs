@@ -1,7 +1,7 @@
 use crate::structures::vec3::Vec3;
 use crate::structures::ray::Ray;
 use crate::structures::material::Material;
-use crate::objects::traits::Trace;
+use crate::objects::trace::Trace;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Plane {
@@ -23,16 +23,16 @@ impl Plane {
 impl Trace for Plane {
     fn material(&self) -> Material { self.material }
 
-    fn trace(&self, ray: Ray) -> (bool, f64, Vec3) {
+    fn trace(&self, ray: Ray) -> Option<(f64, Vec3)> {
         let denom = self.normal.dot(&ray.direction);
         if denom.abs() > 0.0 {
             let t = (self.position - ray.origin).dot(&self.normal) / denom;
 
             if t >= 0.0 {
-                 return (true, t, self.normal);
+                 return Some((t, self.normal));
             }
         }
 
-        return (false, f64::MAX, self.normal);
+        return None;
     }
 }

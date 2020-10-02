@@ -11,7 +11,6 @@ pub struct Material {
     pub roughness: f64,
 
     pub transmission: f64,
-    pub ior: f64,
 }
 
 // ior and specular are correlated, remove one or the other?
@@ -20,7 +19,7 @@ impl Material {
     // TODO
 
     pub fn sky() -> Material {
-        Material::emissive(Vec3::new(0.25, 0.4, 1.0), 1.0)
+        Material::emissive(Vec3::new(0.2, 1.0, 0.8), 0.6)
     }
 
     pub fn emissive(color: Vec3, emission: f64) -> Material {
@@ -33,7 +32,6 @@ impl Material {
             roughness: 0.0,
 
             transmission: 0.0,
-            ior: 0.0,
         }
     }
 
@@ -47,7 +45,6 @@ impl Material {
             roughness,
 
             transmission: 0.0,
-            ior: 0.0,
         }
     }
 
@@ -57,13 +54,13 @@ impl Material {
             emission: 0.0,
 
             metallic: 0.0,
-            specular,
+            specular: specular,
             roughness,
 
             transmission: 0.0,
-            ior: 0.0,
         }
     }
 
     // TODO: transparent
+    // convert ior to specular using polynomial approx
 }

@@ -17,5 +17,12 @@ Here's the most recent render, a ray-marched fractal known as a 'Mandelbulb'. As
 ![](https://raw.githubusercontent.com/Tloru/keikan/master/renders/render%2012.png)
 > Rendered in 222 seconds on a MacBook Air.
 
+To render a small demo, clone this repository and run keikan:
+```bash
+git clone https://github.com/slightknack/keikan.git
+cd keikan
+cargo run --release -- ~/Desktop/render.png  # where to save the image
+```
+
 ## Why (the Name) Keikan?
 It's Japanese for policeman.

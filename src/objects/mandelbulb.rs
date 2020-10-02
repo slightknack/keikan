@@ -2,7 +2,7 @@ use std::f64;
 
 use crate::structures::vec3::Vec3;
 use crate::structures::material::Material;
-use crate::objects::traits::March;
+use crate::objects::march::March;
 
 pub struct Mandelbulb {
     pub position: Vec3,
