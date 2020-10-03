@@ -15,7 +15,7 @@ pub fn png(image: Vec<Vec<Vec3>>, path: &Path) -> io::Result<()> {
 
     for (y, row) in image.iter().enumerate() {
         for (x, pixel) in row.iter().enumerate() {
-            buffer.put_pixel(x as u32, y as u32, Rgb(pixel.colorize()));
+            buffer.put_pixel(x as u32, y as u32, Rgb(pixel.colorize(1.0)));
         }
     }
 

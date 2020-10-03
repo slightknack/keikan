@@ -68,9 +68,7 @@ impl Vec3 {
         }
     }
 
-    pub fn colorize(&self) -> [u8; 3] {
-        let k = 1.0;
-
+    pub fn colorize(&self, exposure: f64) -> [u8; 3] {
         // TODO: simplify
 
         // remove colors less than 0
@@ -84,7 +82,7 @@ impl Vec3 {
         // compress colorspace
         // note, in the future, k should be average color across all channels
 
-        color = (3.0 * color) / (2.0 * k + color);
+        color = (3.0 * color) / (2.0 * exposure + color);
 
         {
             let away = (color.y - 1.0).max(0.0) + (color.z - 1.0).max(0.0);

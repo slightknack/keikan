@@ -11,6 +11,7 @@ pub struct Material {
     pub roughness: f64,
 
     pub transmission: f64,
+    // pub ior: f64,
 }
 
 // ior and specular are correlated, remove one or the other?
@@ -32,6 +33,7 @@ impl Material {
             roughness: 0.0,
 
             transmission: 0.0,
+            // ior: 1.0,
         }
     }
 

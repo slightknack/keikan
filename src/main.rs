@@ -19,7 +19,7 @@ fn main() {
     };
 
     let (scene, camera) = demo::shadow();
-    let image = scene.render(camera);
+    let image = camera.render(scene);
 
     match write::png(image, Path::new(&output.to_string())) {
         Ok(())   => (),

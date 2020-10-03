@@ -10,11 +10,7 @@ use crate::structures::camera::Camera;
 use crate::objects::march::March;
 use crate::objects::trace::Trace;
 
-// constants
-pub const MAX_BOUNCES: u32 = 3;
-pub const BRANCH: u32 = 1; // for tree-based path-tracing
-pub const EPSILON: f64 = 0.002;
-pub const AA: u32 = 8;
+pub const EPSILON: f64 = 0.0005;
 
 fn cast_ray(scene: &Scene, ray: Ray) -> Option<Cast> {
     let march = March::hit(&scene.march, ray);
@@ -53,10 +49,12 @@ fn reflect(v: Vec3, n: Vec3) -> Vec3 {
     return v - 2.0 * v.dot(&n) * n;
 }
 
-fn fresnel(cosine: f64, ri: f64) -> f64 {
-    let mut r0: f64 = (1.0 - ri)/(1.0 + ri);
+fn fresnel(ior: f64, normal: Vec3, ray: Ray) -> f64 {
+    let mut r0: f64 = (1.0 - ior)/(1.0 + ior);
+    let cosine = -normal.dot(&ray.direction);
     r0 = r0*r0;
-    return r0 + (1.0-r0)*(1.0-cosine).powi(5);
+    let unclamped = r0 + (1.0-r0) * (1.0-cosine).powi(5);
+    return (0.0 as f64).max(unclamped.min(1.0));
 }
 
 fn refract(v: &Vec3, n: &Vec3, ni_over_nt: f64, refracted: &mut Vec3) -> bool {
@@ -73,17 +71,19 @@ fn refract(v: &Vec3, n: &Vec3, ni_over_nt: f64, refracted: &mut Vec3) -> bool {
 }
 
 // simplify
-fn color(scene: &Scene, ray: Ray, bounce: u32, branches: u32) -> Vec3 {
+fn color(scene: &Scene, ray: Ray, bounce: usize, branches: usize) -> Vec3 {
     let (distance, normal, material) = match cast_ray(&scene, ray) {
         Some(cast) if bounce != 0 => (cast.distance, cast.normal, cast.material),
         // hit the sky or traced for too long
-        Some(_) => return Vec3::new(0.0, 0.0, 0.0),
-        None => return scene.bg.color * scene.bg.emission,
+        // Some(_) => return Vec3::new(0.0, 0.0, 0.0),
+        _ => return scene.bg.color * scene.bg.emission,
     };
 
-    // let d = (distance - 5.7) / 2.0;
-    // return Vec3::new(d, d, d);
-    return (normal + 1.0) * 0.5;
+    // uncomment to debug depth map:
+    // return Vec3::new(1.0/distance, 1.0/distance, 1.0/distance);
+
+    // uncomment to debug normal map:
+    // return (normal + 1.0) * 0.5;
 
     let     position     = ray.point_at(&distance);
     let mut diffuse      = Vec3::new(0.0, 0.0, 0.0);
@@ -114,7 +114,17 @@ fn color(scene: &Scene, ray: Ray, bounce: u32, branches: u32) -> Vec3 {
 
     specular = specular / (branches as f64);
 
-    return pbr(material, transmission, diffuse, specular);
+    // this calculation of IOR looks fine,
+    // but specular is defined as a percent,
+    // so this might not be correct
+    let sqrtm = material.specular.sqrt();
+    let ior = (1.0 - sqrtm * 0.28) / (sqrtm * 0.28 + 1.0); // 0.28 is ~ sqrt(0.08)
+
+    return pbr(
+        material, transmission, diffuse, specular,
+        fresnel(ior, normal, ray)
+        // material.specular,
+    );
 }
 
 // combine samples in a PBR manner
@@ -123,19 +133,21 @@ pub fn pbr(
     transmission: Vec3,
     diffuse: Vec3,
     specular: Vec3,
+    fresnel: f64,
 ) -> Vec3 {
     // TODO: transmission
 
     // mix transparent and diffuse
-    let base = (transmission * material.transmission) + (diffuse * (1.0 - material.transmission));
+    let base = (transmission * material.transmission) + diffuse * (1.0 - material.transmission);
 
-    // TODO: specular seems off, violating cons. of energy. review.
-    let dielectric = base + (specular * material.specular); // with a specular layer on top
-    let electric = specular * material.color; // for metallic materials
+    // with a specular layer on top
+    let dielectric = (specular * fresnel) + base * (1.0 - fresnel);
+    // for metallic materials
+    let electric = specular * material.color;
 
     // lerp electric and dielectric
-    let non_emmisive = (electric * material.metallic) + (dielectric * (1.0 - material.metallic));
-    let combined = (material.color * material.emission) + (non_emmisive * (1.0 - material.emission).max(0.0));
+    let non_emmisive = (electric * material.metallic) + dielectric * (1.0 - material.metallic);
+    let combined = (material.color * material.emission) + non_emmisive * (1.0 - material.emission).max(0.0);
 
     // final color.
     return combined;
@@ -144,32 +156,19 @@ pub fn pbr(
 pub fn sample(
     scene: &Scene,
     camera: &Camera,
+    rng: &mut impl Rng,
     u: f64, v: f64
 ) -> Vec3 {
-    let mut rng = rand::thread_rng();
     let mut aliased = Vec3::new(0.0, 0.0, 0.0);
-    let mut sample = 1;
 
-    for _s in 0..AA {
+    for _s in 0..camera.aa {
         // shake pixel around
         let (x, y) = (u + rng.gen::<f64>(), v + rng.gen::<f64>());
         let ray = camera.make_ray(x, y);
 
-        let c = color(&scene, ray, MAX_BOUNCES, BRANCH);
-
-        let so_far = (aliased + c) / sample as f64;
-        let previous = aliased / ((sample - 1) as f64 + EPSILON);
-        let change = (so_far - previous).length();
-
-        if change < 0.001 && sample > (AA / 2) {
-            // println!("{}", sample);
-            return so_far;
-        }
-
         // cast ray
-        aliased = aliased + c;
-        sample += 1;
+        aliased = aliased + color(&scene, ray, camera.bounces, camera.branch);
     }
 
-    return aliased / (AA as f64);
+    return aliased / (camera.aa as f64);
 }
