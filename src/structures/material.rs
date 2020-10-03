@@ -56,7 +56,7 @@ impl Material {
             emission: 0.0,
 
             metallic: 0.0,
-            specular: specular,
+            specular,
             roughness,
 
             transmission: 0.0,

@@ -49,6 +49,7 @@ fn reflect(v: Vec3, n: Vec3) -> Vec3 {
     return v - 2.0 * v.dot(&n) * n;
 }
 
+// adapted from Casual Shadertoy Path Tracing Part III (demofox.org)
 fn fresnel(ior: f64, normal: Vec3, ray: Ray) -> f64 {
     let mut r0: f64 = (1.0 - ior)/(1.0 + ior);
     let cosine = -normal.dot(&ray.direction);
@@ -75,7 +76,7 @@ fn color(scene: &Scene, ray: Ray, bounce: usize, branches: usize) -> Vec3 {
     let (distance, normal, material) = match cast_ray(&scene, ray) {
         Some(cast) if bounce != 0 => (cast.distance, cast.normal, cast.material),
         // hit the sky or traced for too long
-        // Some(_) => return Vec3::new(0.0, 0.0, 0.0),
+        Some(_) => return Vec3::new(0.0, 0.0, 0.0),
         _ => return scene.bg.color * scene.bg.emission,
     };
 
@@ -119,12 +120,10 @@ fn color(scene: &Scene, ray: Ray, bounce: usize, branches: usize) -> Vec3 {
     // so this might not be correct
     let sqrtm = material.specular.sqrt();
     let ior = (1.0 - sqrtm * 0.28) / (sqrtm * 0.28 + 1.0); // 0.28 is ~ sqrt(0.08)
+    let f = fresnel(ior, normal, ray);
+    // return Vec3::new(f, f, f);
 
-    return pbr(
-        material, transmission, diffuse, specular,
-        fresnel(ior, normal, ray)
-        // material.specular,
-    );
+    return pbr(material, transmission, diffuse, specular, f);
 }
 
 // combine samples in a PBR manner

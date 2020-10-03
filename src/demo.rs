@@ -10,21 +10,21 @@ use crate::objects::triangle::Triangle;
 // const RESOLUTION: (usize, usize) = (1440, 900);
 const RESOLUTION: (usize, usize) = (720, 450);
 
-pub fn scene() -> (Scene, Camera) {
+pub fn mandelbulb() -> (Scene, Camera) {
     let camera = Camera::new(
         Vec3::new(-2.0, 0.6, 4.0),
         Vec3::new(0.0,  0.0, 1.0),
         Vec3::new(0.0,  1.0, 0.0),
-        20.0,
+        60.0,
         RESOLUTION,
-        8, 1, 3,
+        1, 1, 3,
     );
 
     let mut scene = Scene::empty();
 
-    let plastic = Material::dielectric(Vec3::new(1.0, 1.0, 0.4), 0.0, 1.0);
-    let light   = Material::emissive(Vec3::new(1.0, 1.0, 1.0), 3.0);
-    let metal   = Material::metal(Vec3::new(0.9, 0.8, 0.5), 0.0, 0.0);
+    let plastic = Material::dielectric(Vec3::new(0.2, 0.2, 0.2), 0.7, 0.05);
+    let light   = Material::emissive(Vec3::new(1.0, 1.0, 0.9), 3.0);
+    let metal   = Material::metal(Vec3::new(1.0, 1.0, 1.0), 0.0, 0.0);
 
     let sphere = Sphere::new(
         Vec3::new(4.0, 4.0, 4.0),
@@ -32,22 +32,23 @@ pub fn scene() -> (Scene, Camera) {
         light
     );
 
-    let bulb = Mandelbulb::new(Vec3::new(0.0, 0.0, 0.0), 8.0, 10, plastic);
+    // let bulb = Mandelbulb::new(Vec3::new(0.0, 0.0, 0.0), 8.0, 10, metal);
+    let bulb = Sphere::new(Vec3::new(0.0, 0.0, 0.0), 1.0, plastic);
 
     let plane = Plane::new(
         Vec3::new(0.0, -1.0, 0.0),
         Vec3::new(0.0,  1.0, 0.0),
-        plastic
+        plastic,
     );
 
     scene.add_trace(Box::new(sphere));
-    scene.add_march(Box::new(bulb));
-    // scene.add_trace(Box::new(plane));
+    scene.add_trace(Box::new(bulb));
+    scene.add_trace(Box::new(plane));
 
     return (scene, camera);
 }
 
-pub fn shadow() -> (Scene, Camera) {
+pub fn specular() -> (Scene, Camera) {
     let camera = Camera::new(
         Vec3::new(5.0, 2.2, 5.0),
         Vec3::new(0.0, 1.2, 0.0),
@@ -61,10 +62,10 @@ pub fn shadow() -> (Scene, Camera) {
     scene.bg = Material::emissive(Vec3::new(0.5, 0.5, 1.0), 0.5);
 
     let light  = Material::emissive(Vec3::new(1.0, 1.0, 1.0), 2.0);
-    let chalk  = Material::dielectric(Vec3::new(0.5, 0.7, 0.5), 0.7, 0.05);
+    let chalk  = Material::dielectric(Vec3::new(0.5, 0.5, 0.5), 0.5, 0.01);
     let mirror = Material::metal(Vec3::new(0.9, 0.5, 0.5), 0.0, 0.01);
 
-    let sphere = Sphere::new(Vec3::new(0.0, 1.0, 0.0), 1.0, mirror);
+    let sphere = Sphere::new(Vec3::new(0.0, 1.0, 0.0), 1.0, chalk);
     let lamp   = Sphere::new(Vec3::new(0.0, 2.0, 2.0), 0.5, light);
     let ground = Plane::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0), chalk);
 
