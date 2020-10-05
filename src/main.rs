@@ -1,3 +1,4 @@
+use std::env;
 use std::path::Path;
 // use tokio::prelude::*;
 
@@ -5,19 +6,25 @@ mod structures;
 mod objects;
 mod write;
 mod render;
-mod make_scene;
+mod demo;
 
-use render::render;
-use make_scene::make_scene;
-use structures::vec3::Vec3;
-
-const RENDER_OUT: &str = "/Users/isaac/Desktop/render.png"; // make this your own path
-
+// runs the demo
 fn main() {
-    let scene = make_scene();
-    let image = scene.render();
+    let output: String = match env::args().nth(1) {
+        Some(p) => p,
+        None    => {
+            eprintln!("Expected output path CLI argument");
+            return;
+        },
+    };
 
-    write::png(image, Path::new(&RENDER_OUT.to_string()));
+    let (scene, camera) = demo::mandelbulb();
+    let image = camera.render(scene);
+
+    match write::png(image, Path::new(&output.to_string())) {
+        Ok(())   => (),
+        Err(_) => eprintln!("Could not save image!"),
+    }
 }
 
 // TODO: write tests

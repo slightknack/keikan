@@ -1,102 +1,28 @@
 use std::f64;
-use std::sync::Arc;
 use rand::Rng;
 
 use crate::structures::vec3::Vec3;
 use crate::structures::ray::Ray;
-use crate::structures::camera::Camera;
 use crate::structures::material::Material;
 use crate::structures::scene::Scene;
-use crate::structures::cast_result::CastResult;
-use crate::objects::traits::{ March, Trace };
+use crate::structures::cast::Cast;
+use crate::structures::camera::Camera;
+use crate::objects::march::March;
+use crate::objects::trace::Trace;
 
-// constants
-const MAX_STEPS: u32 = 128;
-const MAX_DEPTH: u32 = 10;
-const MAX_BOUNCES: u32 = 5;
-const SAMPLES: u32 = 1;
-const EPSILON: f64 = 0.002;
-const AA: u32 = 1;
+pub const EPSILON: f64 = 0.0005;
 
-// TODO: refactor rendering code into impl for scene, camera, and materials, etc.
-// TODO: results are trapped and rays will self-intersect, especially for metals
-fn hit_march(march: &Vec<Arc<dyn March>>, ray: Ray) -> CastResult {
-    let sdf = |point: Vec3| {
-        let mut min = f64::MAX;
-        let mut mat = Material::blank();
+fn cast_ray(scene: &Scene, ray: Ray) -> Option<Cast> {
+    let march = March::hit(&scene.march, ray);
+    let trace = Trace::hit(&scene.trace, ray);
 
-        for object in march.iter() {
-            let distance = object.march(point);
-
-            if distance <= min {
-                min = distance;
-                mat = object.material();
-            }
-        }
-
-        return (min, mat);
-    };
-
-    let normal = |p: Vec3| {
-        Vec3::new(
-            sdf(Vec3::new(p.x + EPSILON, p.y, p.z)).0 - sdf(Vec3::new(p.x - EPSILON, p.y, p.z)).0,
-            sdf(Vec3::new(p.x, p.y + EPSILON, p.z)).0 - sdf(Vec3::new(p.x, p.y - EPSILON, p.z)).0,
-            sdf(Vec3::new(p.x, p.y, p.z + EPSILON)).0 - sdf(Vec3::new(p.x, p.y, p.z - EPSILON)).0,
-        ).unit()
-    };
-
-    let mut depth = EPSILON;
-
-    for step in 0..MAX_STEPS {
-        let point = ray.point_at(&depth);
-        let (distance, material) = sdf(point);
-
-        if distance <= EPSILON {
-            let normal = normal(point); // quick normal estimation
-
-            // let mut mat = Material::blank();
-            // mat.color = normal;
-
-            return CastResult::new(true, depth, normal, material);
-        }
-
-        if distance >= MAX_DEPTH.into() {
-            break;
-        }
-
-        depth += distance;
+    match (march, trace) {
+        (None, None) => None,
+        (None, t @ Some(_)) => t,
+        (m @ Some(_), None) => m,
+        // trace results are more exact, so favor in a tie.
+        (Some(m), Some(t)) => Some(if m.distance < t.distance { m } else { t }),
     }
-    return CastResult::worst();
-}
-
-fn hit_trace(trace: &Vec<Arc<dyn Trace>>, ray: Ray) -> CastResult {
-    let mut best = CastResult::worst();
-
-    for object in trace.iter() {
-        let (hit, distance, normal) = object.trace(ray);
-
-        if hit && distance > EPSILON && (best.hit == false || distance <= best.distance) {
-            best = CastResult::new(hit, distance, normal, object.material());
-        }
-    }
-
-    return best;
-}
-
-fn cast_ray(scene: &Scene, ray: Ray) -> CastResult {
-    let march = hit_march(&scene.march, ray);
-    let trace = hit_trace(&scene.trace, ray);
-
-    // nothing was hit, so return the sky
-    if !march.hit && !trace.hit {
-        return CastResult::worst();
-    }
-
-    if  trace.hit && !march.hit || trace.distance <= march.distance {
-        return trace;
-    }
-
-    return march;
 }
 
 fn sample_sphere() -> Vec3 {
@@ -115,14 +41,21 @@ fn sample_sphere() -> Vec3 {
     return point;
 }
 
+fn sample_sphere_surface() -> Vec3 {
+    sample_sphere().unit()
+}
+
 fn reflect(v: Vec3, n: Vec3) -> Vec3 {
     return v - 2.0 * v.dot(&n) * n;
 }
 
-fn fresnel(cosine: f64, ri: f64) -> f64 {
-    let mut r0: f64 = (1.0 - ri)/(1.0 + ri);
+// adapted from Casual Shadertoy Path Tracing Part III (demofox.org)
+fn fresnel(ior: f64, normal: Vec3, ray: Ray) -> f64 {
+    let mut r0: f64 = (1.0 - ior)/(1.0 + ior);
+    let cosine = -normal.dot(&ray.direction);
     r0 = r0*r0;
-    return r0 + (1.0-r0)*(1.0-cosine).powi(5);
+    let unclamped = r0 + (1.0-r0) * (1.0-cosine).powi(5);
+    return (0.0 as f64).max(unclamped.min(1.0));
 }
 
 fn refract(v: &Vec3, n: &Vec3, ni_over_nt: f64, refracted: &mut Vec3) -> bool {
@@ -139,90 +72,102 @@ fn refract(v: &Vec3, n: &Vec3, ni_over_nt: f64, refracted: &mut Vec3) -> bool {
 }
 
 // simplify
-fn color(scene: &Scene, ray: Ray, bounce: u32, samples: u32) -> Vec3 {
-    let (hit, distance, normal, material) = cast_ray(&scene, ray).unpack();
+fn color(scene: &Scene, ray: Ray, bounce: usize, branches: usize) -> Vec3 {
+    let (distance, normal, material) = match cast_ray(&scene, ray) {
+        Some(cast) if bounce != 0 => (cast.distance, cast.normal, cast.material),
+        // hit the sky or traced for too long
+        Some(_) => return Vec3::new(0.0, 0.0, 0.0),
+        _ => return scene.bg.color * scene.bg.emission,
+    };
 
-    // nothing hit, return the sky
-    if !hit || bounce <= 0 {
-        return material.color * material.emission;
-    }
+    // uncomment to debug depth map:
+    // return Vec3::new(1.0/distance, 1.0/distance, 1.0/distance);
 
+    // uncomment to debug normal map:
     // return (normal + 1.0) * 0.5;
 
     let     position     = ray.point_at(&distance);
     let mut diffuse      = Vec3::new(0.0, 0.0, 0.0);
     let mut specular     = Vec3::new(0.0, 0.0, 0.0);
-    let mut transmission = Vec3::new(0.0, 0.0, 0.0);
+    let     transmission = Vec3::new(0.0, 0.0, 0.0);
 
     // diffuse
-    for _ in 0..samples {
-        let scatter = Ray::through(position, (normal + sample_sphere()) - position);
-        let sample = color(&scene, scatter, (bounce - 1), 1); // (samples / 2).max(1)); // only take one sample
+    for _ in 0..branches {
+        let scatter = Ray::new(position, (sample_sphere_surface() + normal).unit());
+        let sample = color(&scene, scatter, bounce - 1, 1); // (samples / 2).max(1)); // only take one sample
 
         diffuse = diffuse + material.color * sample;
     }
 
-    diffuse = diffuse / (samples as f64);
+    diffuse = diffuse / (branches as f64);
 
     // specular
-    if material.roughness == 0.0 {
-        let scatter = Ray::new(position, reflect(ray.direction, normal).unit());
-        specular = color(&scene, scatter, (bounce - 1), samples);
-    } else {
-        for _ in 0..samples {
-            let scatter = Ray::new(position, reflect(ray.direction, normal).unit());
-            // let scatter = Ray::through(
-            //     position,
-            //     (reflect(ray.direction, normal) + sample_sphere() * material.roughness) - position,
-            // );
+    for _ in 0..branches {
+        // let scatter = Ray::new(position, reflect(ray.direction, normal).unit());
+        let scatter = Ray::new(
+            position,
+            reflect(ray.direction, normal + (sample_sphere() * material.roughness)),
+        );
 
-            let sample = color(&scene, scatter, (bounce - 1), (samples / 2).max(1));
-            specular = specular + sample;
-        }
-
-        specular = specular / (samples as f64);
+        let sample = color(&scene, scatter, bounce - 1, (branches / 2).max(1));
+        specular = specular + sample;
     }
 
-    // TODO: transmission
+    specular = specular / (branches as f64);
 
-    // combine the samples in a PBR manner
-    return (
-        (
-            ( // for dielectric materials. TODO: fresnel blending
-                (
-                    (transmission *        material.transmission)  // mix transparent
-                  + (diffuse      * (1.0 - material.transmission)) // and diffuse
-                )
-              + (specular * material.specular) // with a specular layer on top
-              // TODO: specular seems off, violating cons. of energy. review.
-            )
-          * (1.0 - material.metallic) // lerp with metal
+    // this calculation of IOR looks fine,
+    // but specular is defined as a percent,
+    // so this might not be correct
+    let sqrtm = material.specular.sqrt();
+    let ior = (1.0 - sqrtm * 0.28) / (sqrtm * 0.28 + 1.0); // 0.28 is ~ sqrt(0.08)
+    let f = fresnel(ior, normal, ray);
+    // return Vec3::new(f, f, f);
 
-          + ( // for metallic materials
-                specular * material.color
-            )
-          * material.metallic
-        )
-      * (1.0 - material.emission).max(0.0) // modified lerp with emissive
-
-      + ( // for emissive materials
-          material.color * material.emission
-        )
-    );
+    return pbr(material, transmission, diffuse, specular, f);
 }
 
-pub fn render(scene: &Scene, uv: (f64, f64)) -> Vec3 {
-    let mut rng = rand::thread_rng();
+// combine samples in a PBR manner
+pub fn pbr(
+    material: Material,
+    transmission: Vec3,
+    diffuse: Vec3,
+    specular: Vec3,
+    fresnel: f64,
+) -> Vec3 {
+    // TODO: transmission
+
+    // mix transparent and diffuse
+    let base = (transmission * material.transmission) + diffuse * (1.0 - material.transmission);
+
+    // with a specular layer on top
+    let dielectric = (specular * fresnel) + base * (1.0 - fresnel);
+    // for metallic materials
+    let electric = specular * material.color;
+
+    // lerp electric and dielectric
+    let non_emmisive = (electric * material.metallic) + dielectric * (1.0 - material.metallic);
+    let combined = non_emmisive + material.color * material.emission;
+
+    // final color.
+    return combined;
+}
+
+pub fn sample(
+    scene: &Scene,
+    camera: &Camera,
+    rng: &mut impl Rng,
+    u: f64, v: f64
+) -> Vec3 {
     let mut aliased = Vec3::new(0.0, 0.0, 0.0);
 
-    for _ in 0..AA {
+    for _s in 0..camera.aa {
         // shake pixel around
-        let xy = (uv.0 + rng.gen::<f64>(), uv.1 + rng.gen::<f64>());
-        let ray = scene.camera.make_ray(xy);
+        let (x, y) = (u + rng.gen::<f64>(), v + rng.gen::<f64>());
+        let ray = camera.make_ray(x, y);
 
         // cast ray
-        aliased = aliased + color(&scene, ray, MAX_BOUNCES, SAMPLES);
+        aliased = aliased + color(&scene, ray, camera.bounces, camera.branch);
     }
 
-    return aliased / (AA as f64);
+    return aliased / (camera.aa as f64);
 }

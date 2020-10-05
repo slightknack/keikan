@@ -1,50 +1,23 @@
-use std::sync::Arc;
-use std::io::Write;
-
-use crate::structures::camera::Camera;
-use crate::structures::vec3::Vec3;
-use crate::objects::traits::{ March, Trace };
-use crate::render::render;
+use crate::structures::material::Material;
+use crate::objects::march::March;
+use crate::objects::trace::Trace;
 
 pub struct Scene {
-    pub march: Vec<Arc<dyn March>>,
-    pub trace: Vec<Arc<dyn Trace>>,
-    pub camera: Camera,
+    pub march: Vec<Box<dyn March>>,
+    pub trace: Vec<Box<dyn Trace>>,
+    pub bg: Material,
 }
 
 impl Scene {
-    pub fn new(camera: Camera) -> Scene {
-        Scene { march: vec![], trace: vec![], camera: camera }
+    pub fn empty() -> Scene {
+        Scene { march: vec![], trace: vec![], bg: Material::sky() }
     }
 
-    pub fn add_march(&mut self, march: impl March + 'static) {
-        self.march.push(Arc::new(march));
+    pub fn add_march(&mut self, march: Box<dyn March>) {
+        self.march.push(march);
     }
 
-    pub fn add_trace(&mut self, trace: impl Trace + 'static) {
-        self.trace.push(Arc::new(trace));
-    }
-
-    pub fn render(&self) -> Vec<Vec<Vec3>> {
-        let mut image = vec![];
-
-        for y in 0..self.camera.height() {
-            let mut row = vec![];
-
-            print!("\rrow {} / {} ", y + 1, self.camera.height());
-            std::io::stdout().flush().ok().expect("Could not flush stdout");
-
-            for x in 0..self.camera.width() {
-                row.push(render(
-                    &self,
-                    (x as f64, (self.camera.height() - y) as f64),
-                ));
-            }
-
-            image.push(row);
-        }
-
-        println!();
-        return image;
+    pub fn add_trace(&mut self, trace: Box<dyn Trace>) {
+        self.trace.push(trace);
     }
 }
