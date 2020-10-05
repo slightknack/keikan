@@ -1,4 +1,7 @@
 use std::io::Write;
+use std::thread;
+use std::sync::Arc;
+use num_cpus;
 
 use crate::structures::vec3::Vec3;
 use crate::structures::ray::Ray;
@@ -68,27 +71,71 @@ impl Camera {
         )
     }
 
-    pub fn render(&self, scene: Scene) -> Vec<Vec<Vec3>> {
+    pub fn render(self, scene: Scene)  -> Vec<Vec<Vec3>> {
+        // display rendering information
+        println!("Render Information\n");
+
+        println!("rendering {} pixel(s):", self.reso.0 * self.reso.1);
+        println!(" - {} row(s)", self.reso.1);
+        println!(" - {} column(s)\n", self.reso.0);
+
+        println!("taking {} samples(s) per pixel:", self.aa * self.branch.pow(self.bounces as u32));
+        println!(" - {} base sample(s) for AA", self.aa);
+        println!(" - {} bounce(s) per sample", self.bounces);
+        println!(" - {} branch(es) per bounce\n", self.branch);
+
+        println!("scene has {} object(s):", scene.trace.len() + scene.march.len());
+        println!(" - {} traced object(s)", scene.trace.len());
+        println!(" - {} marched object(s)\n", scene.march.len());
+
+        let camera = Arc::new(self);
+        let scene  = Arc::new(scene);
+
+        let num_workers = num_cpus::get();
+        println!("automatically detected {} cpu core(s):", num_workers);
+
+        let mut workers = vec![];
+        for worker in 0..num_workers {
+            let start = self.height() * worker / num_workers;
+            let stop   = self.height() * (worker + 1) / num_workers;
+
+            let camera_clone = Arc::clone(&camera);
+            let scene_clone  = Arc::clone(&scene);
+
+            workers.push(thread::spawn(move || {
+                Camera::section(camera_clone, scene_clone, start, stop, worker + 1)
+            }));
+        }
+
+        let mut result = vec![];
+
+        for worker in workers {
+            result.append(&mut worker.join().expect("thread failed to return value"))
+        }
+
+        println!();
+        return result;
+    }
+
+    pub fn section(
+        self: Arc<Self>, scene: Arc<Scene>,
+        start: usize, stop: usize, id: usize,
+    ) -> Vec<Vec<Vec3>> {
         let mut rng = rand::thread_rng();
         let mut image = vec![];
 
-        for y in 0..self.height() {
+        for y in start..stop {
             let mut row = vec![];
 
-            print!("\rrow {}/{}, {}%", y + 1, self.height(), (y + 1) * 100 / self.height());
-            std::io::stdout().flush().ok().expect("Could not flush stdout");
-
             for x in 0..self.width() {
-                row.push(sample(
-                    &scene,
-                    &self,
-                    &mut rng,
-                    x as f64,
-                    (self.height() - y) as f64,
-                ));
+                row.push(
+                    sample(&scene, &self, &mut rng, x as f64, (self.height() - y) as f64)
+                );
             }
 
             image.push(row);
+            print!("\r - worker {} is {}% done", id, (y - start + 1) * 100 / (stop - start));
+            std::io::stdout().flush().ok().expect("Could not flush stdout");
         }
 
         println!();

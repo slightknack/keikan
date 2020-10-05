@@ -1,18 +1,16 @@
-use std::rc::Rc;
-
 use crate::structures::vec3::Vec3;
 use crate::structures::ray::Ray;
 use crate::structures::material::Material;
 use crate::structures::cast::Cast;
 use crate::render::EPSILON;
 
-pub trait Trace {
+pub trait Trace: Send + Sync {
     fn material(&self) -> Material;
     fn trace(&self, ray: Ray) -> Option<(f64, Vec3)>; // distance, normal
 }
 
 impl dyn Trace {
-    pub fn hit(trace: &Vec<Rc<dyn Trace>>, ray: Ray) -> Option<Cast> {
+    pub fn hit(trace: &Vec<Box<dyn Trace>>, ray: Ray) -> Option<Cast> {
         let mut best: Option<Cast> = None;
 
         for object in trace.iter() {

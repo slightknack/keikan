@@ -37,13 +37,13 @@ impl Material {
         }
     }
 
-    pub fn metal(color: Vec3, specular: f64, roughness: f64) -> Material {
+    pub fn metal(color: Vec3, roughness: f64) -> Material {
         Material {
             color,
             emission: 0.0,
 
             metallic: 1.0,
-            specular,
+            specular: 1.0,
             roughness,
 
             transmission: 0.0,

@@ -18,7 +18,7 @@ fn main() {
         },
     };
 
-    let (scene, camera) = demo::specular();
+    let (scene, camera) = demo::mandelbulb();
     let image = camera.render(scene);
 
     match write::png(image, Path::new(&output.to_string())) {

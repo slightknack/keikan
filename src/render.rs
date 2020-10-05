@@ -146,7 +146,7 @@ pub fn pbr(
 
     // lerp electric and dielectric
     let non_emmisive = (electric * material.metallic) + dielectric * (1.0 - material.metallic);
-    let combined = (material.color * material.emission) + non_emmisive * (1.0 - material.emission).max(0.0);
+    let combined = non_emmisive + material.color * material.emission;
 
     // final color.
     return combined;
