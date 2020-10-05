@@ -18,8 +18,8 @@ sources and my own experience to develop it further.
 ## Results
 Here's a recent render of a ray-marched *Mandelbulb* (a type of fractal):
 
-![A Mandelbulb fractal](https://raw.githubusercontent.com/Tloru/keikan/master/renders/render%2012.png)
-> Rendered in 222 seconds on a MacBook Air.
+![A Mandelbulb fractal](https://raw.githubusercontent.com/slightknack/keikan/master/renders/f%20-%20multithreaded%20renders/27%20-%20mandelbulb.png)
+> Rendered in a little over 2 minutes on a potato.
 
 There are some images bundles in this repository under the `keikan/renders/`
 folder, ordered chronologically. Go check them out!
